@@ -9,6 +9,8 @@
     "erp:apps": "node scripts/install-apps.js",
     "erp:down": "docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml down",
     "erp:reset": "node scripts/reset.js",
+    "erp:backup": "node scripts/backup.js",
+    "erp:restore": "node scripts/restore.js",
     "erp:logs": "docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml logs -f create-site backend",
     "seed": "node src/seed/run.js",
     "check": "node src/seed/check.js",

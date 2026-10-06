@@ -109,6 +109,8 @@ rebuild everything from scratch:
 | `npm run erp:apps` | Install our apps on the site, or migrate them after a change |
 | `npm run erp:down` | Stop ERPNext (keeps its data) |
 | `npm run erp:reset` | Stop ERPNext and **delete its data** (asks you to type `RESET` first); the next `erp:up` builds a fresh site |
+| `npm run erp:backup` | Full backup of the site (database + files) into a dated folder; see [Backup and restore](#backup-and-restore) |
+| `npm run erp:restore` | Put a backup back (asks you to type `RESTORE` first) |
 | `npm run erp:logs` | Follow the site-creation and server logs |
 | `npm run check` | **Is the site ready?** One ✅/❌ line per prerequisite; changes nothing |
 | `npm run seed` | Prepare the test data now, and repair anything changed by hand |
@@ -126,6 +128,61 @@ rebuild everything from scratch:
 | Tests fail on a site you changed by hand | Reset to a clean site: `npm run erp:reset`, `npm run erp:up`, `npm run erp:apps` |
 | **502 Bad Gateway** after `erp:up` | nginx still points at the old backend container: `docker restart erpnext-qa-frontend-1` (`erp:up` does this for you) |
 | A change in `retail_pos_india` does not show | Python or hooks: `docker restart erpnext-qa-backend-1`. The POS script: `docker exec erpnext-qa-backend-1 bench --site frontend clear-cache`, then a **hard reload** of the page (**Ctrl+Shift+R**): the browser keeps the old POS script until then |
+
+## Backup and restore
+
+The site's data lives in Docker, not in these folders (see [Start again from nothing](#start-again-from-nothing)).
+To keep it, for example sales and POS sessions you made by hand, back it up.
+
+```bash
+npm run erp:backup
+```
+
+Saves the **whole site** (every record: POS invoices, opening and closing entries, POS profiles,
+items, customers, users, settings) and its attached files into a dated folder:
+
+```
+erpnext-backups/2026-10-07_005346/
+  ...-database.sql.gz            the database (about 1 MB for this site)
+  ...-files.tar, ...-private-files.tar
+  ...-site_config_backup.json    settings, incl. the encryption key
+  manifest.json                  when, and which apps and versions
+```
+
+⚠ The folder holds all the site's data and its **encryption key**: keep it private, never in a public repository.
+The newest 30 backups are kept (`BACKUP_KEEP` in `.env`).
+
+```bash
+npm run erp:restore                              # the newest backup
+npm run erp:restore -- 2026-10-07_005346         # a given one
+```
+
+Restore **replaces everything on the site** with the backup, so it asks you to type `RESTORE`.
+Then it migrates (if the apps are newer than the backup) and clears the cache. Checked: a customer
+added after a backup was gone after restoring it, and the site passed `npm run check` and the tests.
+
+### Backups in Google Drive
+
+1. Install **Google Drive for desktop** (https://www.google.com/drive/download/) and sign in with your
+   personal Google account. It adds a drive such as `G:\My Drive` that syncs to Google Drive.
+2. In `.env`, set:
+   ```
+   BACKUP_DIR=G:\My Drive\ERPNext-Backups
+   ```
+3. `npm run erp:backup` now saves straight into Google Drive.
+
+**On another laptop:** install Google Drive for desktop, set up this repository (steps above),
+then `npm run erp:restore`: the newest backup comes back from Google Drive.
+
+### A backup every day (optional)
+
+Windows Task Scheduler can run the backup every evening (the laptop must be on, Docker running):
+
+```bash
+schtasks /create /tn "ERPNext backup" /sc daily /st 21:00 /tr "cmd /c cd /d D:\CareerPath\erpnext-playwright-ai-test-automation && npm run erp:backup >> ..\erpnext-backups\backup.log 2>&1"
+```
+
+Remove it with `schtasks /delete /tn "ERPNext backup"`.
 
 ## What the seed prepares
 
