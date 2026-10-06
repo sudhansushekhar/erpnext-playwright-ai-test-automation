@@ -1,0 +1,11 @@
+node_modules/
+
+# Test output: reports and traces record what was typed, passwords included
+/.results/
+
+# Local settings and secrets
+.env
+
+# Claude Code local state
+.claude/worktrees/
+.claude/settings.local.json
