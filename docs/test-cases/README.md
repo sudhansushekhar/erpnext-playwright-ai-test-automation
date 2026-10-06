@@ -19,7 +19,7 @@ The layout follows the iVendNext POS journey docs.
 Script: `tests/<area>/<name>.spec.js` · Area: <area> · Owner: @<github-handle>
 
 ## TC-nnn <what happens, in one line: this is also the test's title>
-**Runs:** `@smoke` or `@nightly` · **Test data:** <what the seed prepared that it uses>
+**Requirement:** REQ-<AREA>-nnn (from `docs/requirements/`) · **Runs:** `@smoke` or `@nightly` · **Test data:** <what the seed prepared that it uses>
 
 **Steps**
 1. <what the user does, one action per step>
@@ -40,3 +40,8 @@ A good test case:
 - has its **negative case** as its own test case (refused, invalid, not allowed).
 
 The AI agent must not invent a value the test case does not give. If it needs one, it asks.
+
+**Where test cases come from:** a tester writes them, or the AI agent **drafts** them from a
+requirement document in [`docs/requirements/`](../requirements/) (`/test-cases`). A draft is
+marked `Status: draft`; the tester reviews it and changes it to `Status: approved` before any
+test code is written from it. Every test case names the requirement it checks.

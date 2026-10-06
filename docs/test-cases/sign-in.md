@@ -1,9 +1,9 @@
 # Scenario: Sign in
 
-Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhanshushekhar
+Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhansushekhar · Status: approved
 
 ## TC-001 a wrong password is refused and starts no session
-**Runs:** `@smoke` · **Test data:** the Administrator user (from `.env`)
+**Requirement:** ERPNext sign-in (standard behaviour, no PRD) · **Runs:** `@smoke` · **Test data:** the Administrator user (from `.env`)
 
 **Steps**
 1. Open the sign-in screen.
