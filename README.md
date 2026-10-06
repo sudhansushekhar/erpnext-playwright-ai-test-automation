@@ -12,7 +12,8 @@ What it got wrong is logged in [`docs/ai-review-log.md`](docs/ai-review-log.md).
 ## Setup on a new machine
 
 Everything the tests need is rebuilt from this repository: ERPNext runs in Docker, and the
-seed prepares the test data. Nothing is configured by hand.
+seed prepares the test data. Nothing is configured by hand. Run the commands in **Git Bash** or
+**PowerShell**, one line at a time.
 
 ### 1. Install once
 
@@ -31,8 +32,8 @@ Two repositories, cloned **side by side** in the same folder: this one (the test
 `retail_pos_india` (our POS app, which the Docker ERPNext loads from the folder next to this one):
 
 ```bash
-git clone https://github.com/<your-username>/erpnext-playwright-ai-test-automation.git
-git clone https://github.com/<your-username>/retail_pos_india.git
+git clone https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation.git
+git clone https://github.com/sudhansushekhar/retail_pos_india.git
 cd erpnext-playwright-ai-test-automation
 cp .env.example .env
 npm install
@@ -67,20 +68,36 @@ Then install our app on the site (safe to run again; it migrates when already in
 npm run erp:apps
 ```
 
-Open http://localhost:8080 and sign in as **Administrator / admin** to look around.
-
 ### 4. Prepare the test data and run the tests
 
 ```bash
-npm run check           # is the site ready? (read-only)
-npm run seed            # optional: the tests run it themselves before every run
+npm run seed            # builds the company, GST, items, users, tills... (first run: a few minutes)
+npm run check           # is the site ready? every line must be ✅ (read-only)
 npm run test:smoke      # the quick @smoke tests
 npm test                # every test, Chromium and WebKit
 npm run report          # open the HTML report of the last run
 ```
 
-On a brand-new site the seed completes ERPNext's setup wizard, then creates what the tests use
-(see [What the seed prepares](#what-the-seed-prepares)). On later runs it only adds what is missing.
+On a brand-new site the seed completes ERPNext's setup wizard (India, INR), then creates what the
+tests use (see [What the seed prepares](#what-the-seed-prepares)). On later runs it only adds what
+is missing. Before the first seed, `npm run check` shows ❌: that is expected.
+
+Then sign in at http://localhost:8080 as **Administrator / admin**: you land on the **QA Testing**
+page. The demo users (cashiers, manager, admin) sign in with `DEMO_USER_PASSWORD` from `.env`.
+
+### Start again from nothing
+
+Deleting the folders does **not** delete ERPNext's data: the site lives in Docker volumes. To
+rebuild everything from scratch:
+
+1. In this folder, wipe the site (its data, POS sessions and sales are deleted):
+   ```bash
+   npm run erp:reset
+   ```
+2. Delete the two folders (`erpnext-playwright-ai-test-automation`, `retail_pos_india`). Close any
+   editor, File Explorer window or terminal that has them open first, or Windows refuses.
+3. Follow this setup again from step 2. The Docker images stay downloaded, so step 3 takes a few
+   minutes instead of fifteen.
 
 ### Everyday commands
 
