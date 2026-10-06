@@ -72,6 +72,20 @@ GST lines and the card or UPI details, booked under the cashier who sold it.
 A cashier can close their own session from the POS menu ("Close the POS"): the closing entry
 shows the session's sales and is submitted by the cashier.
 
+## 5. Cashiers and devices
+
+### REQ-POS-017 · A cashier signs in straight to the Point of Sale
+After sign-in, a cashier lands on the Point of Sale, where they open their till (session).
+
+### REQ-POS-018 · A cashier uses only the Point of Sale
+A cashier (no manager or admin role) who opens any other desk page is sent back to the Point of
+Sale, with the message "Cashiers use the Point of Sale." Opening and closing the till (POS
+Opening Entry, POS Closing Entry) and printing receipts stay allowed. Managers are not redirected.
+
+### REQ-POS-019 · One device at a time
+A cashier can be signed in on one device only: signing in on a second device ends the session on
+the first.
+
 ## Open questions
 
 - Should a cashier be able to give a sale discount without a manager? (Today: yes.)

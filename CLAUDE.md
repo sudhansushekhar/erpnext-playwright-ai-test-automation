@@ -36,8 +36,8 @@ npm run report           # open the last HTML report
 
 ## Rules for every test
 
-1. **Start from a test case.** The test's title is the test case's exact heading (`TC-nnn ...`),
-   and its first line names the file (`// Test case: docs/test-cases/sales-invoice.md (TC-002)`).
+1. **Start from a test case.** The test's title is the test case's exact heading (`TC-<AREA>-nnn ...`),
+   and its first line names the file (`// Test case: docs/test-cases/pos-sale.md (TC-POS-001)`).
    No test case, no test.
 2. **Import `test` and `expect` from `src/fixtures.js`**, never from `@playwright/test`.
 3. **Assert the record the server booked, by its name.** Take the document's name from the
@@ -62,6 +62,10 @@ npm run report           # open the last HTML report
 10. **Every test must be able to fail.** When you write one, break the expected value once and
     watch it go red before you trust it green.
 11. **Never type or commit a real credential.** Only the local Docker values in `.env`.
+12. **One sign-in per user at a time.** The `api` fixture is signed in as Administrator; signing the
+    same user in again while a page of theirs is loading makes that page show "Server Error". UI tests
+    sign the browser in as a demo user (cashier, manager); when the browser must be Administrator,
+    create the API session first.
 
 ## Test cases from requirements (BRD / PRD)
 

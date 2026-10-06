@@ -44,6 +44,7 @@ async function seed({ log = console.log } = {}) {
     await ensurePaymentModes(api, log)
     await ensureCashierRole(api, log)
     for (const user of d.users) await ensureUser(api, log, user)
+    await ensureSessionLimits(api, log)
     await ensurePosProfile(api, log)
     await ensureQaPage(api, log)
     await ensureLandingPage(api, log)
@@ -310,10 +311,14 @@ async function ensurePaymentModes(api, log) {
  * custom ones, so adding a role never drops the existing rules.
  */
 async function ensureCashierRole(api, log) {
-  const { name: role, doctypes, rights } = d.cashierRole
-  if (!(await api.findDoc('Role', role))) {
+  const { name: role, doctypes, rights, homePage } = d.cashierRole
+  const existing = await api.findDoc('Role', role)
+  if (!existing) {
     log(`SEED: creating role ${role}`)
-    await api.insert('Role', { role_name: role, desk_access: 1 })
+    await api.insert('Role', { role_name: role, desk_access: 1, home_page: homePage })
+  } else if (existing.home_page !== homePage) {
+    log(`SEED: ${role} signs in to ${homePage}`)
+    await api.update('Role', role, { home_page: homePage })
   }
   const pm = 'frappe.core.page.permission_manager.permission_manager'
   for (const doctype of doctypes) {
@@ -336,6 +341,23 @@ async function ensureCashierRole(api, log) {
   }
 }
 
+/**
+ * One device at a time: "Allow only one session per user" on, so each user keeps at most their
+ * Simultaneous Sessions (cashiers 1, set in ensureUser). Administrator keeps several, because the
+ * seed, the api fixture and the browser each sign in as Administrator.
+ */
+async function ensureSessionLimits(api, log) {
+  const settings = await api.getDoc('System Settings', 'System Settings')
+  if (Boolean(settings.deny_multiple_sessions) !== d.sessions.denyMultiple) {
+    log('SEED: one session per user (System Settings > Allow only one session per user)')
+    await api.update('System Settings', 'System Settings', { deny_multiple_sessions: d.sessions.denyMultiple ? 1 : 0 })
+  }
+  const admin = await api.getDoc('User', ENV.adminUser)
+  if (admin.simultaneous_sessions !== d.sessions.others) {
+    await api.update('User', ENV.adminUser, { simultaneous_sessions: d.sessions.others })
+  }
+}
+
 /** A demo user with the ERPNext roles of their demo role; password from DEMO_USER_PASSWORD. */
 async function ensureUser(api, log, user) {
   const roles = d.roles[user.role].map((role) => ({ role }))
@@ -346,6 +368,7 @@ async function ensureUser(api, log, user) {
     enabled: 1,
     roles,
     new_password: ENV.demoUserPassword,
+    simultaneous_sessions: user.role === 'Cashier' ? d.sessions.cashier : d.sessions.others,
   }
   if (await api.findDoc('User', user.email)) {
     await api.update('User', user.email, fields)

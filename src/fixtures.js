@@ -10,12 +10,20 @@
  *   session    a REST client on the browser's own session (page.request): what the server
  *              thinks of THIS browser, e.g. session.sessionUser()
  *   loginPage  the sign-in screen
+ *   till       the cashier's till, open: Anjali on Till 1 with the opening float (POS Opening Entry,
+ *              through the API). Closed after the test, even a failed one, and checked Closed.
+ *   pos        the Point of Sale, signed in as the till's cashier, ready to sell
+ *   posNoTill  the Point of Sale for Rohit (Till 2) with no open till: the opening dialog
+ *
+ * A till can have one open session and a cashier one device, so POS tests on one till run one at a time.
  */
 const fs = require('fs')
 const base = require('@playwright/test')
 const { ENV } = require('../config/env')
 const { FrappeClient } = require('./api/FrappeClient')
 const { LoginPage } = require('./pages/LoginPage')
+const { PosPage } = require('./pages/PosPage')
+const { openTill, closeTill, closeOpenTillsOf } = require('./api/till')
 
 const test = base.test.extend({
   env: async ({}, use) => {
@@ -39,6 +47,37 @@ const test = base.test.extend({
 
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page))
+  },
+
+  till: async ({ api, testData }, use) => {
+    const [till] = testData.tills // Till 1, Anjali
+    const cashier = till.users[0]
+    const timeZone = testData.timezone
+    await closeOpenTillsOf(api, cashier, { timeZone }) // left open by a run that crashed
+    const opening = await openTill(api, {
+      company: testData.company, posProfile: till.name, user: cashier,
+      openingCash: testData.posProfile.openingCash, timeZone,
+    })
+    await use({ name: till.name, cashier, opening })
+    // The last step of every POS test: close the till, and make sure it is closed.
+    await closeTill(api, opening, { timeZone })
+    base.expect((await api.getDoc('POS Opening Entry', opening)).status, `till session ${opening}`).toBe('Closed')
+  },
+
+  pos: async ({ page, till, env }, use) => {
+    const pos = new PosPage(page)
+    await pos.open(till.cashier, env.demoUserPassword)
+    await pos.ready()
+    await use(pos)
+  },
+
+  posNoTill: async ({ page, api, testData, env }, use) => {
+    const cashier = testData.tills[1].users[0] // Rohit, Till 2
+    await closeOpenTillsOf(api, cashier, { timeZone: testData.timezone })
+    const pos = new PosPage(page)
+    await pos.open(cashier, env.demoUserPassword)
+    await pos.openingDialog.waitFor()
+    await use(pos)
   },
 })
 

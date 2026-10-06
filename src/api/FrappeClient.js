@@ -66,6 +66,23 @@ class FrappeClient {
     )
   }
 
+  /** Stock of an item in a warehouse now (its Bin), 0 when it never had any. */
+  async stockQty(itemCode, warehouse) {
+    const [bin] = await this.getList('Bin', {
+      filters: [['item_code', '=', itemCode], ['warehouse', '=', warehouse]],
+      fields: ['actual_qty'],
+    })
+    return bin ? bin.actual_qty : 0
+  }
+
+  /** The stock movements a document booked (its Stock Ledger Entries), e.g. a sales invoice's. */
+  async stockMovements(voucherNo) {
+    return this.getList('Stock Ledger Entry', {
+      filters: [['voucher_no', '=', voucherNo], ['is_cancelled', '=', 0]],
+      fields: ['item_code', 'warehouse', 'actual_qty'],
+    })
+  }
+
   /** Change some fields of an existing record. */
   async update(doctype, name, fields) {
     return this._json(
@@ -100,6 +117,22 @@ class FrappeClient {
     const body = await this._body(res)
     if (!res.ok()) throw new Error(`${method}: HTTP ${res.status()} ${shortError(body)}`)
     return body.message
+  }
+
+  /**
+   * The server's clock as a site datetime ("YYYY-MM-DD HH:mm:ss" in the site's time zone), from
+   * the HTTP Date header: correct even when this machine runs in another time zone (e.g. CI in UTC).
+   */
+  async serverNow(timeZone) {
+    const res = await this.ctx.get('/api/method/ping')
+    const at = new Date(res.headers()['date'])
+    const parts = Object.fromEntries(
+      new Intl.DateTimeFormat('en-GB', {
+        timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
+        hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
+      }).formatToParts(at).map((p) => [p.type, p.value]),
+    )
+    return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
   }
 
   async _json(res) {

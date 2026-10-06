@@ -79,6 +79,12 @@ const TEST_DATA = {
     customer: 'Walk-in Customer', // the POS starts every sale with this customer
     writeOffAccount: `Write Off - ${ABBR}`,
     writeOffLimit: 1, // amounts up to ₹1.00 can be written off at payment
+    openingCash: 1000, // the float a test's till opens with (the pos fixture)
+  },
+  // What a test types on the payment screen for a UPI or card payment (made-up values, not real).
+  paymentDetails: {
+    upiReference: '412345678901', // a 12-digit UTR
+    card: { type: 'RuPay', last4: '4242', approval: 'a1b2c3', approvalSaved: 'A1B2C3' }, // saved in capitals
   },
   // ERPNext allows ONE open session per POS profile, so a profile is a till: two cashiers on one
   // profile could not both start work ("QA POS is open"). Each till is a copy of QA POS with its
@@ -111,7 +117,15 @@ const TEST_DATA = {
     name: 'Cashier',
     doctypes: ['POS Opening Entry', 'POS Closing Entry'],
     rights: ['read', 'write', 'create', 'submit'],
+    // A cashier signs in straight to the Point of Sale (the role's Home Page; cashiers have no
+    // Default Workspace, so this is where ERPNext sends them).
+    homePage: 'desk/point-of-sale',
   },
+
+  // One device at a time. With "Allow only one session per user" on, each user keeps at most
+  // `Simultaneous Sessions` sessions: signing in again ends the oldest. Cashiers: 1. Everyone
+  // else keeps more, because the tests sign Administrator in several times (seed, api fixture).
+  sessions: { denyMultiple: true, cashier: 1, others: 10 },
 
   // ── Demo data for trying things by hand ─────────────────────────────────────────────────
   // Generic product names, prices INCLUDE GST (MRP). Buying price is what the shop paid.

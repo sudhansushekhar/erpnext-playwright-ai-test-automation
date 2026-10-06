@@ -1,6 +1,6 @@
 ---
 description: Write the Playwright test for an approved test case, run it, and prove it can fail
-argument-hint: <docs/test-cases/file.md> <TC-nnn>
+argument-hint: <docs/test-cases/file.md> <TC-<AREA>-nnn>
 ---
 
 Write the test for: $ARGUMENTS

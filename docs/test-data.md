@@ -113,6 +113,7 @@ What these show:
 | Payment modes | **Cash** (default) → Cash - QAR · **UPI**, **Debit Card**, **Credit Card** → QA Bank - QAR |
 | POS profiles (tills) | **QA POS** (Administrator, manager, admin; used by the tests) · **Till 1** (Anjali) · **Till 2** (Rohit). Managers and admins may use every till |
 | Opening a till | The **Create POS Opening Entry** dialog lists **only Cash** (the drawer's opening float): click its Opening Amount, type the float, Submit. No row checkboxes, Delete row or Duplicate row (every listed row is submitted anyway) |
+| Opening float in tests | **₹1,000.00** cash (`testData.posProfile.openingCash`): the `pos` fixture opens the cashier's till with it before each POS test and closes the till after |
 | Every profile | Stores - QAR, Standard Selling, **Walk-in Customer** to start each sale, **GST In-State**, sale discount on **Net Total**, stock updated by each sale, rate and discount changes allowed, write-off up to ₹1.00 |
 | A POS sale is booked as | a **Sales Invoice** with `is_pos = 1` (POS Settings, the v16 default) |
 
@@ -129,6 +130,9 @@ cashier has their own till. On a shared profile the second cashier was refused: 
 | **UPI field** (UPI Transaction ID) | Shown **only for UPI**: the **12-digit UTR** from the payment confirmation |
 | At Complete Order | A card payment needs the last 4 digits; a UPI payment needs the UTR. Details of a payment mode not used are cleared |
 | Screen sizes | Checked at 1440×900, 1366×768 and 1280×720: the fields, the number pad, the totals and Complete Order are all visible |
+
+**Payment details the tests type** (`testData.paymentDetails`; made up, not real): UPI Transaction ID
+**412345678901**; card **RuPay**, last 4 digits **4242**, approval code **a1b2c3** (saved as **A1B2C3**).
 
 **Selling by hand** (http://localhost:8080/desk/point-of-sale):
 
@@ -150,6 +154,14 @@ the reserved `.test` domain, which can never be a real address.
 | Rohit Kumar | rohit.kumar@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Till 2 |
 | Meera Nair | meera.nair@qa-retail.test | Store Manager | + Sales, Stock and Accounts Manager | every till (default QA POS) |
 | Vikram Singh | vikram.singh@qa-retail.test | Admin | + System Manager | every till (default QA POS) |
+
+**Cashiers sign in straight to the Point of Sale** (role Cashier → Home Page `desk/point-of-sale`),
+where the till-opening dialog waits. A cashier who opens any other desk page is **sent back to the
+POS** (the cashier guard in retail_pos_india; opening and closing the till and receipts stay
+allowed; managers and admins are not affected). **One device at a time:** "Allow only one session
+per user" is on and cashiers have 1 simultaneous session, so signing in on a second device ends the
+first. Administrator and the other demo users keep up to 10 (the tests sign Administrator in
+several times).
 
 **The Cashier role:** standard ERPNext lets only a Sales Manager or System Manager open or close a
 POS session; a plain cashier got *403 Permission denied*. The seed adds a **Cashier** role that
