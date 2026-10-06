@@ -1,7 +1,7 @@
 /**
  * Every spec takes `test` and `expect` from here, never from @playwright/test.
  *
- *   const { test, expect } = require('../../src/fixtures')
+ *   const { test, expect, meta } = require('../../src/fixtures')
  *   test('...', { tag: ['@smoke'] }, async ({ loginPage, session, testData, api }) => { ... })
  *
  *   env        base URL and credentials (config/env.js)
@@ -42,4 +42,11 @@ const test = base.test.extend({
   },
 })
 
-module.exports = { test, expect: base.expect }
+// Report helpers (reporting-labs), so specs import everything from this one file:
+//   meta({...})        priority, severity, owner, feature, story (= requirement ID) from the test case
+//   log('...')         a timestamped line in the report
+//   reportData(obj)    the data a test used, as a table in the report (reporting-labs calls it
+//                      testData; renamed here so it does not clash with the testData fixture)
+const { meta, log, testData: reportData } = require('reporting-labs')
+
+module.exports = { test, expect: base.expect, meta, log, reportData }

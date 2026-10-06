@@ -11,6 +11,7 @@
  *   - retries: 0. A retry hides the flakiness this suite exists to show.
  *   - No grep/testIgnore here. Narrowing happens only on the command line (--grep @smoke).
  */
+require('reporting-labs/auto') // records every request / page.request call in the report
 const { defineConfig, devices } = require('@playwright/test')
 const { ENV } = require('./config/env')
 
@@ -32,7 +33,8 @@ module.exports = defineConfig({
 
   reporter: [
     isCI ? ['github'] : ['list'],
-    ['html', { outputFolder: '.results/html', open: 'never' }],
+    ['reporting-labs', require('./reporting-labs.config')], // the main report: npm run report
+    ['html', { outputFolder: '.results/html', open: 'never' }], // Playwright's own, for its trace viewer
     ['json', { outputFile: '.results/results.json' }],
   ],
 

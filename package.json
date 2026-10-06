@@ -17,10 +17,12 @@
     "test": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
     "test:headed": "playwright test --headed --project=chromium --workers=1",
-    "report": "playwright show-report .results/html"
+    "report": "node scripts/open-report.js",
+    "report:playwright": "playwright show-report .results/html"
   },
   "devDependencies": {
     "@playwright/test": "1.63.0",
-    "dotenv": "16.4.5"
+    "dotenv": "16.4.5",
+    "reporting-labs": "0.6.13"
   }
 }

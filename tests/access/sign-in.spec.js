@@ -1,5 +1,5 @@
 // Test case: docs/test-cases/sign-in.md (TC-001)
-const { test, expect } = require('../../src/fixtures')
+const { test, expect, meta } = require('../../src/fixtures')
 
 test('TC-001 a wrong password is refused and starts no session', { tag: ['@smoke'] }, async ({
   loginPage,
@@ -7,6 +7,7 @@ test('TC-001 a wrong password is refused and starts no session', { tag: ['@smoke
   context,
   env,
 }) => {
+  meta({ priority: 'P1', severity: 'critical', owner: 'sudhansushekhar', feature: 'Access' })
   await loginPage.open()
 
   const response = await loginPage.signIn(env.adminUser, `not-the-password-${Date.now()}`)

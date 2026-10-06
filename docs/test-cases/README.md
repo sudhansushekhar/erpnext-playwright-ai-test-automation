@@ -19,7 +19,8 @@ The layout follows the iVendNext POS journey docs.
 Script: `tests/<area>/<name>.spec.js` · Area: <area> · Owner: @<github-handle>
 
 ## TC-nnn <what happens, in one line: this is also the test's title>
-**Requirement:** REQ-<AREA>-nnn (from `docs/requirements/`) · **Runs:** `@smoke` or `@nightly` · **Test data:** <what the seed prepared that it uses>
+**Requirement:** REQ-<AREA>-nnn (from `docs/requirements/`) · **Priority:** P0–P4 · **Severity:** blocker / critical / major / minor / trivial
+**Runs:** `@smoke` or `@nightly` · **Test data:** <what the seed prepared that it uses>
 
 **Steps**
 1. <what the user does, one action per step>
@@ -38,6 +39,10 @@ A good test case:
 - gives **exact values** (amounts, statuses, messages), never "correct" or "updated";
 - covers one behaviour; a second behaviour is a second test case;
 - has its **negative case** as its own test case (refused, invalid, not allowed).
+
+**Priority and severity** go into the report: the test calls
+`meta({ priority, severity, owner, feature: <Area>, story: <Requirement> })` with these values,
+so failures are ranked (blockers on top) and each links to its requirement.
 
 The AI agent must not invent a value the test case does not give. If it needs one, it asks.
 
