@@ -1,7 +1,7 @@
-// Test case: docs/test-cases/sign-in.md (TC-001)
+// Test case: docs/test-cases/sign-in.md (TC-SIGNIN-001)
 const { test, expect, meta } = require('../../src/fixtures')
 
-test('TC-001 a wrong password is refused and starts no session', { tag: ['@smoke'] }, async ({
+test('TC-SIGNIN-001 a wrong password is refused and starts no session', { tag: ['@smoke'] }, async ({
   loginPage,
   session,
   context,

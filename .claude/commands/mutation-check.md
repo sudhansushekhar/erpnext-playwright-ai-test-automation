@@ -1,6 +1,6 @@
 ---
 description: Prove a test can fail - break its expectation, run, restore, run again
-argument-hint: <tests/.../file.spec.js> [test title or TC-nnn]
+argument-hint: <tests/.../file.spec.js> [test title or TC-<AREA>-nnn]
 ---
 
 Mutation check for: $ARGUMENTS

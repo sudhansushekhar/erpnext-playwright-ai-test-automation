@@ -20,7 +20,7 @@ requirement (BRD/PRD)  ──/test-cases──▶  test case (draft)  ──you 
 | 2 | Requirements in, with IDs | `docs/requirements/<feature>.md` | you (or a BA) |
 | 3 | Draft test cases from them | `/test-cases docs/requirements/pos-sale-prd.md REQ-POS-009..013` | AI |
 | 4 | **Review the draft**: right values? missing cases? answer the open questions; set `Status: approved` | `docs/test-cases/<area>.md` | **you** |
-| 5 | Write the test, run it, prove it can fail | `/write-test docs/test-cases/pos-sale.md TC-002` | AI |
+| 5 | Write the test, run it, prove it can fail | `/write-test docs/test-cases/pos-sale.md TC-POS-001` | AI |
 | 6 | **Review the test** against the checklist | `/review-test tests/pos/sale.spec.js` + read it yourself | AI + **you** |
 | 7 | Watch it, read the report | `npm run test:headed`, `npm run report` | you |
 | 8 | Log what the AI got wrong, add the rule | `docs/ai-review-log.md`, `CLAUDE.md` | AI, **you approve** |
@@ -34,16 +34,16 @@ you make sure it tests the right thing.
 | Command | Does | Changes files? |
 |---|---|---|
 | `/test-cases <requirements file> [REQ ids]` | Drafts test cases (Status: draft), a coverage table and open questions | test case file only |
-| `/write-test <test case file> <TC-nnn>` | Writes page-object methods and the spec from an **approved** test case, runs it, mutation-checks it | tests, page objects |
+| `/write-test <test case file> <TC-<AREA>-nnn>` | Writes page-object methods and the spec from an **approved** test case, runs it, mutation-checks it | tests, page objects |
 | `/review-test <spec file>` | Checks the spec against the 10-point list below; PASS/FAIL with line numbers | no |
 | `/mutation-check <spec file> [TC]` | Breaks the main expectation, shows the failure, restores it | no (restores) |
 
 Without the commands, plain prompts work too, for example:
 
-> Read CLAUDE.md, docs/test-data.md and docs/test-cases/pos-sale.md. Write the test for TC-002,
+> Read CLAUDE.md, docs/test-data.md and docs/test-cases/pos-sale.md. Write the test for TC-POS-001,
 > reuse existing page objects, run it on Chromium and show me the real result.
 
-> TC-002 failed. Read the error and the trace: product bug, test bug, timing or test data?
+> TC-POS-001 failed. Read the error and the trace: product bug, test bug, timing or test data?
 > Show the evidence before suggesting a fix.
 
 ## Reviewing an AI-written test (the checklist)

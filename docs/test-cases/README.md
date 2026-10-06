@@ -7,8 +7,12 @@ The layout follows the iVendNext POS journey docs.
 | Level | Here |
 |---|---|
 | **Test scenario**: what to test, one feature | one file, e.g. `sign-in.md` ("Scenario: Sign in") |
-| **Test case**: one path through it, with steps and checks | one `## TC-nnn` section in that file |
+| **Test case**: one path through it, with steps and checks | one `## TC-<AREA>-nnn` section in that file |
 | **Test script**: the test case automated | one `test(...)` in the matching spec file |
+
+**Test case IDs: `TC-<AREA>-nnn`, numbered per scenario**, in order and never reused or
+renumbered once a test exists: `TC-SIGNIN-001`, `TC-SIGNIN-002`... in `sign-in.md`,
+`TC-POS-001`, `TC-POS-002`... in `pos-sale.md`. A new scenario picks a short area code.
 
 **One file per scenario, named after its spec file**: `tests/access/sign-in.spec.js` →
 `docs/test-cases/sign-in.md`. **One section per test case**, headed by the test's exact title.
@@ -18,7 +22,7 @@ The layout follows the iVendNext POS journey docs.
 
 Script: `tests/<area>/<name>.spec.js` · Area: <area> · Owner: @<github-handle>
 
-## TC-nnn <what happens, in one line: this is also the test's title>
+## TC-<AREA>-nnn <what happens, in one line: this is also the test's title>
 **Requirement:** REQ-<AREA>-nnn (from `docs/requirements/`) · **Priority:** P0–P4 · **Severity:** blocker / critical / major / minor / trivial
 **Runs:** `@smoke` or `@nightly` · **Test data:** <what the seed prepared that it uses>
 
