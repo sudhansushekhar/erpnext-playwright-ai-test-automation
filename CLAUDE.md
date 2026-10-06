@@ -11,6 +11,7 @@ Playwright Test (JavaScript, CommonJS) for **ERPNext**, run locally in Docker
 
 | Path | Role |
 |---|---|
+| `docs/requirements/*.md` | BRD/PRD documents: requirements with IDs (`REQ-POS-012`). What test cases are drafted from. |
 | `docs/test-cases/*.md` | Test cases in plain English: steps, and the exact checks including the record the server saved. One file per spec file. **The source of every test.** |
 | `tests/**/*.spec.js` | Tests: steps and assertions only. No locators. |
 | `src/pages/*.js` | Page objects: one class per screen, one method per thing a user does. All locators live here. |
@@ -62,9 +63,27 @@ npm run report           # open the last HTML report
     watch it go red before you trust it green.
 11. **Never type or commit a real credential.** Only the local Docker values in `.env`.
 
+## Test cases from requirements (BRD / PRD)
+
+When asked to draft test cases from a document in `docs/requirements/`:
+
+1. **One requirement, at least one test case**, and the **unhappy path** as its own test case
+   (refused, invalid, not allowed). Each test case names its requirement: `**Requirement:** REQ-POS-012`.
+2. **Use only what the document and `docs/test-data.md` say.** Exact values (amounts, messages)
+   come from them. Never invent a business rule, a message or an amount.
+3. **Anything unclear becomes a question**, listed under `## Open questions` in the test case
+   file, not a guess. Contradictions between the document and the site are listed there too.
+4. Write drafts in the test case format (`docs/test-cases/README.md`) with `Status: draft`.
+   **No test code is written from a draft:** a tester reviews it and sets `Status: approved`.
+5. End with a **coverage table**: every requirement ID in the document, and the test cases that
+   cover it (or "not covered: why").
+
 ## Rules for the agent
 
 - Read the test case and the existing page objects before writing anything. Reuse methods.
+- Write code only from a test case with `Status: approved` (or one written by a tester).
+- Reusable prompts for this workflow are slash commands in `.claude/commands/`
+  (`/test-cases`, `/write-test`, `/review-test`, `/mutation-check`); see `docs/ai-workflow.md`.
 - If the test case is ambiguous, stop and ask; do not invent business rules or expected values.
 - After writing a test, run it (`npx playwright test <file> --project=chromium`) and report
   the real result. Do not claim a pass you did not see.

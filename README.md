@@ -9,6 +9,13 @@ What it got wrong is logged in [`docs/ai-review-log.md`](docs/ai-review-log.md).
 
 > Work in progress: one-week build, day by day. New machine? Start at [Setup on a new machine](#setup-on-a-new-machine).
 
+## Working with AI
+
+Requirements (BRD/PRD) → test cases → tests, with Claude Code doing the writing and the tester
+reviewing each step. Slash commands in `.claude/commands/`: `/test-cases`, `/write-test`,
+`/review-test`, `/mutation-check`. The loop, the prompts and the review checklist:
+**[docs/ai-workflow.md](docs/ai-workflow.md)**. A sample PRD: [docs/requirements/pos-sale-prd.md](docs/requirements/pos-sale-prd.md).
+
 ## Setup on a new machine
 
 Everything the tests need is rebuilt from this repository: ERPNext runs in Docker, and the
@@ -205,7 +212,9 @@ starts from the same data. Market: **India, INR**.
 
 | Layer | Where |
 |---|---|
+| Requirements (BRD/PRD) with IDs | `docs/requirements/` |
 | Test cases in plain English (the tester's work) | `docs/test-cases/` |
+| Reusable AI prompts (slash commands) | `.claude/commands/` |
 | Rules the AI must follow | `CLAUDE.md` |
 | Tests: steps and assertions only | `tests/` |
 | Page objects: every locator | `src/pages/` |
