@@ -90,10 +90,12 @@ page. The demo users (cashiers, manager, admin) sign in with `DEMO_USER_PASSWORD
 Deleting the folders does **not** delete ERPNext's data: the site lives in Docker volumes. To
 rebuild everything from scratch:
 
-1. In this folder, wipe the site (its data, POS sessions and sales are deleted):
+1. In this folder, wipe the site. **This is the step that deletes the data** (every record, POS
+   session and sale); it asks you to type `RESET` to continue:
    ```bash
    npm run erp:reset
    ```
+   Skip this step to keep the old site: the new folders then connect to the same data.
 2. Delete the two folders (`erpnext-playwright-ai-test-automation`, `retail_pos_india`). Close any
    editor, File Explorer window or terminal that has them open first, or Windows refuses.
 3. Follow this setup again from step 2. The Docker images stay downloaded, so step 3 takes a few
@@ -106,7 +108,7 @@ rebuild everything from scratch:
 | `npm run erp:up` | Start ERPNext (keeps its data), with our apps mounted |
 | `npm run erp:apps` | Install our apps on the site, or migrate them after a change |
 | `npm run erp:down` | Stop ERPNext (keeps its data) |
-| `npm run erp:reset` | Stop ERPNext and **delete its data**; the next `erp:up` builds a fresh site |
+| `npm run erp:reset` | Stop ERPNext and **delete its data** (asks you to type `RESET` first); the next `erp:up` builds a fresh site |
 | `npm run erp:logs` | Follow the site-creation and server logs |
 | `npm run check` | **Is the site ready?** One ✅/❌ line per prerequisite; changes nothing |
 | `npm run seed` | Prepare the test data now, and repair anything changed by hand |

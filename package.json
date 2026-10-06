@@ -8,7 +8,7 @@
     "erp:up": "docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml up -d && docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml restart frontend",
     "erp:apps": "node scripts/install-apps.js",
     "erp:down": "docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml down",
-    "erp:reset": "docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml down -v",
+    "erp:reset": "node scripts/reset.js",
     "erp:logs": "docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml logs -f create-site backend",
     "seed": "node src/seed/run.js",
     "check": "node src/seed/check.js",
