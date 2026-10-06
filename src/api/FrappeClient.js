@@ -111,6 +111,11 @@ class FrappeClient {
     return body.message
   }
 
+  /** The HTTP status the server answers "who is signed in?" with: 200 signed in, 401 session ended. */
+  async sessionStatus() {
+    return (await this.ctx.get('/api/method/frappe.auth.get_logged_user')).status()
+  }
+
   /** Call a whitelisted server method: POST /api/method/<path>. Returns `message`. */
   async call(method, args = {}, { timeout } = {}) {
     const res = await this.ctx.post(`/api/method/${method}`, { form: args, ...(timeout ? { timeout } : {}) })

@@ -10,6 +10,8 @@
  *   session    a REST client on the browser's own session (page.request): what the server
  *              thinks of THIS browser, e.g. session.sessionUser()
  *   loginPage  the sign-in screen
+ *   desk       any desk page (open by path, what it shows)
+ *   secondDevice  a page in a second browser (its own cookies): another device or another user
  *   till       the cashier's till, open: Anjali on Till 1 with the opening float (POS Opening Entry,
  *              through the API). Closed after the test, even a failed one, and checked Closed.
  *   pos        the Point of Sale, signed in as the till's cashier, ready to sell
@@ -23,6 +25,7 @@ const { ENV } = require('../config/env')
 const { FrappeClient } = require('./api/FrappeClient')
 const { LoginPage } = require('./pages/LoginPage')
 const { PosPage } = require('./pages/PosPage')
+const { DeskPage } = require('./pages/DeskPage')
 const { openTill, closeTill, closeOpenTillsOf } = require('./api/till')
 
 const test = base.test.extend({
@@ -47,6 +50,16 @@ const test = base.test.extend({
 
   loginPage: async ({ page }, use) => {
     await use(new LoginPage(page))
+  },
+
+  desk: async ({ page }, use) => {
+    await use(new DeskPage(page))
+  },
+
+  secondDevice: async ({ browser, env }, use) => {
+    const context = await browser.newContext({ baseURL: env.baseUrl, viewport: { width: 1440, height: 900 } })
+    await use(await context.newPage())
+    await context.close()
   },
 
   till: async ({ api, testData }, use) => {

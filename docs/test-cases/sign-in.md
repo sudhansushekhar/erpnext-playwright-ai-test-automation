@@ -19,7 +19,7 @@ Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhansushekha
 **Change it when** the sign-in screen, its button or its refusal message changes.
 
 ## TC-SIGNIN-002 Administrator signs in and lands on the QA Testing page
-**Requirement:** ERPNext sign-in (standard behaviour, no PRD) · **Priority:** P0 · **Severity:** blocker · **Status: draft**
+**Requirement:** ERPNext sign-in (standard behaviour, no PRD) · **Priority:** P0 · **Severity:** blocker
 **Runs:** `@smoke` · **Test data:** Administrator (from `.env`); landing page QA Testing (set by the seed)
 
 **Steps**
@@ -35,7 +35,7 @@ Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhansushekha
 **Change it when** the sign-in screen or the Administrator's landing page (seed) changes.
 
 ## TC-SIGNIN-003 a cashier signs in straight to the Point of Sale, ready to open the till
-**Requirement:** REQ-POS-017 · **Priority:** P0 · **Severity:** blocker · **Status: draft**
+**Requirement:** REQ-POS-017 · **Priority:** P0 · **Severity:** blocker
 **Runs:** `@smoke` · **Test data:** cashier Anjali Verma (anjali.verma@qa-retail.test, `DEMO_USER_PASSWORD`), Till 1 not open
 
 **Steps**
@@ -51,7 +51,7 @@ Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhansushekha
 **Change it when** the cashier's landing page (seed: role Cashier → Home Page) changes.
 
 ## TC-SIGNIN-004 a cashier stays on the Point of Sale: other desk pages send them back
-**Requirement:** REQ-POS-018 · **Priority:** P2 · **Severity:** major · **Status: draft**
+**Requirement:** REQ-POS-018 · **Priority:** P2 · **Severity:** major
 **Runs:** `@nightly` · **Test data:** cashier Anjali Verma; manager Meera Nair
 
 **Steps**
@@ -67,7 +67,7 @@ Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhansushekha
 **Change it when** the cashier guard in retail_pos_india changes.
 
 ## TC-SIGNIN-005 a cashier signed in on a second device is signed out of the first
-**Requirement:** REQ-POS-019 · **Priority:** P1 · **Severity:** critical · **Status: draft**
+**Requirement:** REQ-POS-019 · **Priority:** P1 · **Severity:** critical
 **Runs:** `@nightly` · **Test data:** cashier Anjali Verma
 
 **Steps**
@@ -79,6 +79,8 @@ Script: `tests/access/sign-in.spec.js` · Area: Access · Owner: @sudhansushekha
 - Device A's session has ended: the server refuses its next request for the signed-in user (HTTP 401).
 
 **Change it when** the session limit (seed: one session per user, cashiers 1) changes.
+
+TC-SIGNIN-002 to TC-SIGNIN-005 approved by the tester on 2026-10-07.
 
 ## Decisions (2026-10-07, from the open questions)
 

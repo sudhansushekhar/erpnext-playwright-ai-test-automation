@@ -19,6 +19,15 @@ class LoginPage {
   }
 
   /**
+   * Sign in without the screen, through the API on the browser's own session (page.request shares
+   * its cookies). For tests that are not about the sign-in screen.
+   */
+  async signInThroughApi(user, password) {
+    const res = await this.page.request.post('/api/method/login', { form: { usr: user, pwd: password } })
+    if (!res.ok()) throw new Error(`Sign-in as ${user} failed: HTTP ${res.status()}`)
+  }
+
+  /**
    * Fill the form and press Continue. Returns the server's answer to the sign-in
    * request, so a test can check what the server decided, not only what the screen shows.
    */
