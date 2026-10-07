@@ -75,7 +75,7 @@ New screen: a new class in `src/pages/` and a fixture in `pages.js`. New feature
 | More tests | Same pattern; fixtures and page objects are shared, specs stay short |
 | Faster runs | `WORKERS=n`. POS tests need **one till and cashier per worker** (a till has one open session, a cashier one device): add them to the seed and pick by `test.info().parallelIndex` |
 | More browsers | Projects in `playwright.config.js` (Chromium and WebKit today) |
-| Quick vs full | `@smoke` on every pull request; `@nightly` for everything else (a scheduled CI run) |
+| Quick vs full | `@smoke` on every pull request; every test nightly, published to the [dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/) with the trend across runs |
 | Another site | Change `BASE_URL`; the seed builds the data there |
 | More people writing tests (or AI agents) | `CLAUDE.md` + the lint + the edit hook + CI: the same rules for everyone, checked by machines |
 

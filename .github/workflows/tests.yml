@@ -1,10 +1,12 @@
 # CI: on every pull request, every push to main, every night, or by hand (Actions → Tests → Run workflow).
 #
-#   lint   the CLAUDE.md rules a machine can check (seconds; no ERPNext needed)
-#   e2e    ERPNext with retail_pos_india in Docker (from the app's own repository, as on a laptop),
-#          the seed, a readiness check, then the tests:
-#            pull request / push / by hand   @smoke on Chromium
-#            every night                    every test (@smoke and @nightly) on Chromium and WebKit
+#   lint     the CLAUDE.md rules a machine can check (seconds; no ERPNext needed)
+#   e2e      ERPNext with retail_pos_india in Docker (from the app's own repository, as on a laptop),
+#            the seed, a readiness check, then the tests:
+#              pull request / push / by hand (smoke)   @smoke on Chromium
+#              every night / by hand (full)            every test on Chromium and WebKit
+#   publish  a full run on main publishes its report to GitHub Pages: the dashboard
+#            https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/
 #
 # Credentials are the local Docker values of .env.example: the site exists only inside the job.
 name: Tests
@@ -16,6 +18,12 @@ on:
   schedule:
     - cron: '30 20 * * *' # 02:00 IST
   workflow_dispatch:
+    inputs:
+      suite:
+        description: 'smoke: @smoke on Chromium. full: every test on both browsers (published to the dashboard from main)'
+        type: choice
+        options: [smoke, full]
+        default: smoke
 
 concurrency:
   group: tests-${{ github.ref }}-${{ github.event_name }}
@@ -39,7 +47,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 60
     env:
-      NIGHTLY: ${{ github.event_name == 'schedule' }}
+      SUITE: ${{ (github.event_name == 'schedule' || inputs.suite == 'full') && 'full' || 'smoke' }}
     steps:
       - uses: actions/checkout@v5
 
@@ -83,12 +91,21 @@ jobs:
 
       - name: Install the browsers
         run: |
-          if [ "$NIGHTLY" = "true" ]; then npx playwright install --with-deps chromium webkit
+          if [ "$SUITE" = "full" ]; then npx playwright install --with-deps chromium webkit
           else npx playwright install --with-deps chromium; fi
 
-      - name: Tests (nightly - every test, both browsers; otherwise @smoke on Chromium)
+      # The report's run history (trend, new vs known failures, flaky, slower) lives in one file;
+      # the cache carries it from run to run, separately for smoke and full runs and per branch.
+      - name: Restore the report history
+        uses: actions/cache@v4
+        with:
+          path: .results/reporting-labs.history.json
+          key: report-history-${{ env.SUITE }}-${{ github.ref_name }}-${{ github.run_id }}
+          restore-keys: report-history-${{ env.SUITE }}-${{ github.ref_name }}-
+
+      - name: Tests (${{ env.SUITE }})
         run: |
-          if [ "$NIGHTLY" = "true" ]; then npx playwright test
+          if [ "$SUITE" = "full" ]; then npx playwright test
           else npx playwright test --grep @smoke --project=chromium; fi
 
       - name: Upload the reports
@@ -102,7 +119,42 @@ jobs:
             .results/test-results
           retention-days: 14
 
+      # The dashboard is public: only the reporting-labs report goes there (passwords and payment
+      # details masked by reporting-labs.config.js), without trace files, which record what was typed.
+      - name: Prepare the dashboard
+        if: always() && env.SUITE == 'full' && github.ref == 'refs/heads/main'
+        run: |
+          mkdir -p _site
+          cp -r .results/reporting-labs/. _site/
+          find _site -name '*.zip' -delete
+          touch _site/.nojekyll
+
+      - name: Upload the dashboard
+        if: always() && env.SUITE == 'full' && github.ref == 'refs/heads/main'
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: _site
+
       - name: ERPNext logs (on failure)
         if: failure()
         working-directory: retail_pos_india
         run: docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml logs --tail=200 create-site backend
+
+  publish:
+    needs: e2e
+    # A full run on main, passed or failed (the dashboard shows failures too); not if it was cancelled.
+    if: >-
+      always() && needs.e2e.result != 'cancelled' && needs.e2e.result != 'skipped' &&
+      github.ref == 'refs/heads/main' &&
+      (github.event_name == 'schedule' || inputs.suite == 'full')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      pages: write
+      id-token: write
+    environment:
+      name: github-pages
+      url: ${{ steps.deploy.outputs.page_url }}
+    steps:
+      - id: deploy
+        uses: actions/deploy-pages@v4
