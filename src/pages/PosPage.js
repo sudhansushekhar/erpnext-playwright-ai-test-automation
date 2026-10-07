@@ -37,14 +37,6 @@ class PosPage {
     await this.page.goto('/desk/point-of-sale')
   }
 
-  /** Sign in; a cashier lands on the Point of Sale. Waits for the till screen or the opening dialog. */
-  async signIn(email, password) {
-    const login = new LoginPage(this.page)
-    await login.open()
-    await login.signIn(email, password)
-    await this.page.waitForURL(/point-of-sale/)
-  }
-
   /** Wait until the item list is ready (the cashier's till is open). */
   async ready() {
     await this.search.waitFor()

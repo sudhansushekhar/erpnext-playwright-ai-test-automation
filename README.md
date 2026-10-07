@@ -10,7 +10,7 @@ under the rules in [`CLAUDE.md`](CLAUDE.md). Every test reads back the record th
 its name. A lint, a hook on every AI edit and CI check the rules; what the AI got wrong is logged in
 [`docs/ai-review-log.md`](docs/ai-review-log.md).
 
-**How it is built, in one page: [docs/framework.md](docs/framework.md).**
+**How it is built (structure, architecture, OOP and design patterns, with diagrams): [docs/framework.md](docs/framework.md).**
 How to work with the AI day to day: [docs/ai-workflow.md](docs/ai-workflow.md).
 
 ## Two repositories
