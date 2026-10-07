@@ -18,6 +18,11 @@ class DeskPage {
     await this.page.goto(path)
   }
 
+  /** The path of a workspace page: "QA Testing" → "/desk/qa-testing". */
+  pathOf(workspace) {
+    return `/desk/${workspace.toLowerCase().replace(/ /g, '-')}`
+  }
+
   /** Wait until the desk shows a page titled `title` (the browser tab's title), e.g. "Item". */
   async shows(title) {
     await this.page.waitForFunction((t) => document.title.startsWith(t), title)

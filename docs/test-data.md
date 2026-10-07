@@ -13,7 +13,8 @@ using any of them for real.
 
 ## Before you test by hand
 
-1. Docker Desktop is running, ERPNext is up (`npm run erp:up`) and our app installed (`npm run erp:apps`).
+1. Docker Desktop is running, and ERPNext is up with our app installed (in the retail_pos_india folder:
+   `npm run erp:up`, then `npm run erp:app`).
 2. Run **`npm run check`**. Every line must be ✅; it reads the site and changes nothing.
 3. Any ❌? Run **`npm run seed`**, then `npm run check` again. The seed puts back anything missing or
    changed by hand (a price, the stock, a role, a setting).

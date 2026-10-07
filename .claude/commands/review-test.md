@@ -9,7 +9,7 @@ Read CLAUDE.md, the spec, the test case file it names, and the page objects it u
 each item and answer PASS or FAIL with the line number and the reason:
 
 1. Title matches a test case heading exactly; first line names the test case file.
-2. `test` and `expect` come from src/fixtures.js.
+2. The spec imports only `src/fixtures` and `src/utils` (and `npm run lint` passes on it).
 3. It checks the record the server saved, read back **by name** (not "the latest", not a count).
 4. No locators in the spec; page-object locators use role, label or visible text (CSS only with a reason).
 5. No `waitForTimeout`, `.skip`, `.only`, `.fixme`, `.fail`, retries.

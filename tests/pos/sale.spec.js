@@ -1,21 +1,9 @@
 // Test case: docs/test-cases/pos-sale.md (TC-POS-001 to TC-POS-006)
-// Every sale runs as Anjali on Till 1: the `till` fixture opens her till before the test and
-// closes it after (src/fixtures.js).
+// Every sale runs as the cashier on her till: the `till` fixture opens it before the test and
+// closes it after (src/fixtures/pos.js).
 const { test, expect, meta } = require('../../src/fixtures')
-
-const rupees = (amount) => `₹ ${amount.toFixed(2)}`
-
-/** QA-STOCK-001's price, split as GST included in it: 118 = 100 + CGST 9 + SGST 9. */
-function priceOf(item) {
-  const net = Math.round((item.sellingPrice / (1 + item.gst / 100)) * 100) / 100
-  return { gross: item.sellingPrice, net, halfGst: (item.sellingPrice - net) / 2 }
-}
-
-/** The payment rows that took money (a POS sale lists every mode of the till, unused ones at 0). */
-const paid = (invoice) => invoice.payments.filter((p) => p.amount).map((p) => ({ mode: p.mode_of_payment, amount: p.amount }))
-
-/** The amount booked on one tax account. */
-const taxOn = (invoice, account) => invoice.taxes.find((t) => t.account_head === account)?.tax_amount
+const { rupees, gstSplit } = require('../../src/utils/money')
+const { paidRows, taxOn } = require('../../src/utils/invoice')
 
 test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a POS sales invoice', { tag: ['@smoke'] }, async ({
   pos,
@@ -25,7 +13,7 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
 }) => {
   meta({ priority: 'P0', severity: 'blocker', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-004' })
   const item = testData.items.stock
-  const price = priceOf(item)
+  const price = gstSplit(item)
   const stockBefore = await api.stockQty(item.code, testData.warehouse)
 
   await pos.addItem(item)
@@ -52,7 +40,7 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
   })
   expect(taxOn(invoice, testData.gst.cgstAccount)).toBe(price.halfGst)
   expect(taxOn(invoice, testData.gst.sgstAccount)).toBe(price.halfGst)
-  expect(paid(invoice)).toEqual([{ mode: 'Cash', amount: price.gross }])
+  expect(paidRows(invoice)).toEqual([{ mode: 'Cash', amount: price.gross }])
 
   // Stock: exactly one fewer, and the invoice itself booked the -1.
   expect(await api.stockQty(item.code, testData.warehouse)).toBe(stockBefore - 1)
@@ -85,7 +73,7 @@ test('TC-POS-002 a cashier sells by UPI: the transaction ID is saved with the sa
   expect(sale.accepted).toBe(true)
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)
-  expect(paid(invoice)).toEqual([{ mode: 'UPI', amount: item.sellingPrice }])
+  expect(paidRows(invoice)).toEqual([{ mode: 'UPI', amount: item.sellingPrice }])
   expect(invoice).toMatchObject({ docstatus: 1, grand_total: item.sellingPrice, rpi_upi_reference: utr })
   expect(invoice.rpi_card_type || null).toBeNull()
   expect(invoice.rpi_card_last4 || null).toBeNull()
@@ -127,7 +115,7 @@ test('TC-POS-004 a card sale keeps the card type, last 4 digits and approval cod
   expect(sale.accepted).toBe(true)
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)
-  expect(paid(invoice)).toEqual([{ mode: 'Debit Card', amount: item.sellingPrice }])
+  expect(paidRows(invoice)).toEqual([{ mode: 'Debit Card', amount: item.sellingPrice }])
   expect(invoice).toMatchObject({
     docstatus: 1,
     rpi_card_type: card.type,
@@ -153,22 +141,23 @@ test('TC-POS-005 the number pad takes whole rupees and paise', { tag: ['@nightly
   await pos.tapMode('Cash')
   await pos.typeAmount('12.555')
   await expect(pos.amount('Cash')).toHaveText(rupees(12.55))
-  // Nothing is submitted: the order is not completed (the till's closing lists no sale of it).
+  // Nothing is submitted: the order is not completed.
 })
 
-test('TC-POS-006 opening the till asks only for the cash float', { tag: ['@nightly'] }, async ({ posNoTill, api, testData }) => {
+test('TC-POS-006 opening the till asks only for the cash float', { tag: ['@nightly'] }, async ({
+  posWithoutTill,
+  tills,
+  users,
+}) => {
   meta({ priority: 'P3', severity: 'minor', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-003' })
-  const till = testData.tills[1] // Till 2, Rohit
+  const { email, till } = users.secondCashier
 
-  await posNoTill.chooseTill(till.name)
+  await posWithoutTill.chooseTill(till)
 
-  await expect.poll(() => posNoTill.openingRows()).toEqual([`Cash ${rupees(0)}`])
-  await expect(posNoTill.openingRowCheckboxes).toHaveCount(0)
-  await expect(posNoTill.openingRowActions).toHaveCount(0)
+  await expect.poll(() => posWithoutTill.openingRows()).toEqual([`Cash ${rupees(0)}`])
+  await expect(posWithoutTill.openingRowCheckboxes).toHaveCount(0)
+  await expect(posWithoutTill.openingRowActions).toHaveCount(0)
 
-  // Nothing was submitted: Rohit still has no open till.
-  const open = await api.getList('POS Opening Entry', {
-    filters: [['user', '=', till.users[0]], ['status', '=', 'Open'], ['docstatus', '=', 1]],
-  })
-  expect(open).toEqual([])
+  // Nothing was submitted: the second cashier still has no open till.
+  expect(await tills.openOf(email)).toEqual([])
 })

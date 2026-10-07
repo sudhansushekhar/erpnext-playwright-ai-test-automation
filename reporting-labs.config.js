@@ -5,7 +5,7 @@
  * owner, run history (new vs known failures, flaky, slower), plain-English failure reasons, every
  * API call the tests made, screenshots and traces, and a Bug Report button on each failure.
  *
- * Each test says what it is with meta() (src/fixtures.js re-exports it), taken from its test case:
+ * Each test says what it is with meta() (src/fixtures re-exports it), taken from its test case:
  *   meta({ priority: 'P0', severity: 'blocker', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-012' })
  */
 require('dotenv').config({ quiet: true })

@@ -1,0 +1,108 @@
+# CI: on every pull request, every push to main, every night, or by hand (Actions → Tests → Run workflow).
+#
+#   lint   the CLAUDE.md rules a machine can check (seconds; no ERPNext needed)
+#   e2e    ERPNext with retail_pos_india in Docker (from the app's own repository, as on a laptop),
+#          the seed, a readiness check, then the tests:
+#            pull request / push / by hand   @smoke on Chromium
+#            every night                    every test (@smoke and @nightly) on Chromium and WebKit
+#
+# Credentials are the local Docker values of .env.example: the site exists only inside the job.
+name: Tests
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '30 20 * * *' # 02:00 IST
+  workflow_dispatch:
+
+concurrency:
+  group: tests-${{ github.ref }}-${{ github.event_name }}
+  cancel-in-progress: true
+
+jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  e2e:
+    needs: lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    env:
+      NIGHTLY: ${{ github.event_name == 'schedule' }}
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Check out retail_pos_india (main), which runs ERPNext
+        uses: actions/checkout@v5
+        with:
+          repository: sudhansushekhar/retail_pos_india
+          path: retail_pos_india
+
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+
+      - run: npm ci
+      - run: cp .env.example .env
+
+      - name: Start ERPNext
+        working-directory: retail_pos_india
+        run: npm run erp:up
+
+      - name: Wait for the site (created on first start, a few minutes)
+        run: |
+          # create-site runs once and exits 0 when the site and ERPNext are installed.
+          code=$(timeout 900 docker wait erpnext-qa-create-site-1)
+          if [ "$code" != "0" ]; then echo "site creation failed (exit $code)"; exit 1; fi
+          for i in $(seq 1 30); do
+            if curl -sf http://localhost:8080/api/method/ping | grep -q pong; then echo "ready"; exit 0; fi
+            sleep 10
+          done
+          echo "the site does not answer"; exit 1
+
+      - name: Install retail_pos_india on the site
+        working-directory: retail_pos_india
+        run: npm run erp:app
+
+      - name: Seed the test data, then check the site is ready
+        run: |
+          npm run seed
+          npm run check
+
+      - name: Install the browsers
+        run: |
+          if [ "$NIGHTLY" = "true" ]; then npx playwright install --with-deps chromium webkit
+          else npx playwright install --with-deps chromium; fi
+
+      - name: Tests (nightly - every test, both browsers; otherwise @smoke on Chromium)
+        run: |
+          if [ "$NIGHTLY" = "true" ]; then npx playwright test
+          else npx playwright test --grep @smoke --project=chromium; fi
+
+      - name: Upload the reports
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-reports
+          path: |
+            .results/reporting-labs
+            .results/html
+            .results/test-results
+          retention-days: 14
+
+      - name: ERPNext logs (on failure)
+        if: failure()
+        working-directory: retail_pos_india
+        run: docker compose -p erpnext-qa -f docker/pwd.yml -f docker/apps.yml logs --tail=200 create-site backend

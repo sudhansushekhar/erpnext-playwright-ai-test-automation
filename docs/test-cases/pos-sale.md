@@ -219,7 +219,7 @@ failed, so the till is never left open for the next test. Amounts from `docs/tes
 | REQ-POS-011 card / UPI fields only where needed | TC-POS-002, TC-POS-004 |
 | REQ-POS-012 card needs last 4 | TC-POS-003, TC-POS-004 |
 | REQ-POS-013 UPI needs its ID | TC-POS-002; TC-POS-007 (draft: refused without it) |
-| REQ-POS-014 no full card numbers | TC-POS-012 (draft); also 15 unit tests in retail_pos_india |
+| REQ-POS-014 no full card numbers | TC-POS-012 (draft); also 15 unit tests in retail_pos_india, run by its CI on every pull request |
 | REQ-POS-015 booked as a Sales Invoice | TC-POS-001, TC-POS-002, TC-POS-004 |
 | REQ-POS-016 cashier closes own till | the `till` fixture (API, every test); TC-POS-011 (draft: on screen) |
 | REQ-POS-017 to 019 sign-in, POS only, one device | `docs/test-cases/sign-in.md` (TC-SIGNIN-003 to 005) |

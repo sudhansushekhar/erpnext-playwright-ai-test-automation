@@ -35,7 +35,6 @@ module.exports = defineConfig({
     isCI ? ['github'] : ['list'],
     ['reporting-labs', require('./reporting-labs.config')], // the main report: npm run report
     ['html', { outputFolder: '.results/html', open: 'never' }], // Playwright's own, for its trace viewer
-    ['json', { outputFile: '.results/results.json' }],
   ],
 
   use: {
@@ -47,6 +46,12 @@ module.exports = defineConfig({
 
   projects: [
     { name: 'chromium', use: { ...devices['Desktop Chrome'], viewport: { width: 1440, height: 900 } } },
-    { name: 'webkit', use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } } },
+    {
+      name: 'webkit',
+      use: { ...devices['Desktop Safari'], viewport: { width: 1440, height: 900 } },
+      // Measured: WebKit takes 0.5-1 s per click on the POS screen, so TC-POS-005 (14 key taps)
+      // runs about 67 s here against 60 s allowed. A longer limit, never a retry.
+      timeout: 120 * 1000,
+    },
   ],
 })
