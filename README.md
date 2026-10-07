@@ -1,5 +1,8 @@
 # erpnext-playwright-ai-test-automation
 
+[![Tests](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/tests.yml/badge.svg)](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/tests.yml)
+**[Test dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/)**: last night's full run, with the trend across runs.
+
 AI-assisted test automation for **ERPNext** (Point of Sale for Indian retail) with Playwright.
 
 A tester writes **test cases** in plain English. An AI coding agent turns them into Playwright tests
@@ -79,10 +82,19 @@ page with every test value. Demo users sign in with `DEMO_USER_PASSWORD` from `.
 
 ## CI (GitHub Actions)
 
-[`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs on every pull request, every push to
-`main`, every night, or by hand: first **lint**, then ERPNext from `retail_pos_india` (`main`) in Docker, the seed,
-`npm run check`, then the **@smoke** tests on Chromium (about 5 minutes); every night, every test on both browsers. Reports are attached to the
-run as **test-reports**.
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml): first **lint**, then ERPNext from
+`retail_pos_india` (`main`) in Docker, the seed, `npm run check`, then the tests.
+
+| When | Tests | Report |
+|---|---|---|
+| Every pull request, every push to `main` | `@smoke` on Chromium (about 5 minutes) | attached to the run (**test-reports**) |
+| Every night (02:00 IST) | every test, Chromium and WebKit | attached, and published to the **[dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/)** |
+| By hand (Actions → Tests → Run workflow) | choose `smoke` or `full`; `full` on `main` also updates the dashboard | as above |
+
+The dashboard is the reporting-labs report of the latest full run: failures ranked by priority,
+the trend, new vs known failures, flaky and slower tests (the run history is kept by the CI cache).
+It is public, so it holds no traces (they record what was typed); passwords, cookies and payment
+details are masked in the report.
 
 ## What the seed prepares
 
