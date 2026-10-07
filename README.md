@@ -136,6 +136,16 @@ rebuild everything from scratch:
 | **502 Bad Gateway** after `erp:up` | nginx still points at the old backend container: `docker restart erpnext-qa-frontend-1` (`erp:up` does this for you) |
 | A change in `retail_pos_india` does not show | Python or hooks: `docker restart erpnext-qa-backend-1`. The POS script: `docker exec erpnext-qa-backend-1 bench --site frontend clear-cache`, then a **hard reload** of the page (**Ctrl+Shift+R**): the browser keeps the old POS script until then |
 
+## CI (GitHub Actions)
+
+[`.github/workflows/smoke.yml`](.github/workflows/smoke.yml) runs the **@smoke** tests on Chromium on
+every pull request and every push to `main`, or by hand (Actions → Smoke → Run workflow). It builds
+the same stack as above on a fresh runner: ERPNext in Docker, `retail_pos_india` from its `main`
+branch, the app installed, then the seed and the tests (about 15–20 minutes, most of it creating the
+site). The reports (reporting-labs, Playwright's with traces) are attached to the run as
+**smoke-reports**. Credentials are the local Docker values of `.env.example`; the site exists only
+inside the job.
+
 ## Backup and restore
 
 The site's data lives in Docker, not in these folders (see [Start again from nothing](#start-again-from-nothing)).

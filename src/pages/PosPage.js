@@ -33,8 +33,7 @@ class PosPage {
    * Tests about signing in use the sign-in screen; the POS tests start already signed in.
    */
   async open(email, password) {
-    const res = await this.page.request.post('/api/method/login', { form: { usr: email, pwd: password } })
-    if (!res.ok()) throw new Error(`Sign-in as ${email} failed: HTTP ${res.status()}`)
+    await new LoginPage(this.page).signInThroughApi(email, password)
     await this.page.goto('/desk/point-of-sale')
   }
 
