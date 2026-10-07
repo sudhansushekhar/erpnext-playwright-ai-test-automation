@@ -10,6 +10,8 @@
     "check": "node src/seed/check.js",
     "test": "playwright test",
     "test:smoke": "playwright test --grep @smoke",
+    "test:chromium": "playwright test --project=chromium",
+    "test:webkit": "playwright test --project=webkit",
     "test:headed": "playwright test --headed --project=chromium --workers=1",
     "report": "node scripts/open-report.js",
     "report:playwright": "playwright show-report .results/html"
