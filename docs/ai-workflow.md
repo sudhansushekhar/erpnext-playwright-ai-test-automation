@@ -67,7 +67,7 @@ An AI agent forgets instructions; a check does not. Every rule that can be check
 |---|---|---|
 | `npm run lint` (`eslint.config.js`) | any time | lists each break with the CLAUDE.md rule number |
 | Edit hook (`.claude/settings.json` → `scripts/lint-edited-file.js`) | after **every file the AI edits** in `tests/` or `src/` | the lint output goes straight back to the agent, which fixes it before going on |
-| CI (`.github/workflows/tests.yml`) | every pull request | the pull request shows red: lint first, then the tests on a fresh ERPNext |
+| CI (`.github/workflows/playwright-e2e.yml`) | every pull request | the pull request shows red: lint first, then the tests on a fresh ERPNext |
 | Mutation check (`/mutation-check`) | every new test | proves the test can fail |
 
 What a machine cannot check (the right expected values, a missing case, testing the screen only)

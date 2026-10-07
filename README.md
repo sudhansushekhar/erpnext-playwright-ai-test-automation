@@ -1,6 +1,6 @@
 # erpnext-playwright-ai-test-automation
 
-[![Tests](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/tests.yml/badge.svg)](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/tests.yml)
+[![ERPNext POS · Playwright E2E](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/playwright-e2e.yml/badge.svg)](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/playwright-e2e.yml)
 **[Test dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/)**: last night's full run, with the trend across runs.
 
 AI-assisted test automation for **ERPNext** (Point of Sale for Indian retail) with Playwright.
@@ -68,7 +68,8 @@ page with every test value. Demo users sign in with `DEMO_USER_PASSWORD` from `.
 | `npm run check` | Is the site ready for the tests? One ✅/❌ line per prerequisite; changes nothing |
 | `npm run seed` | Prepare the test data now, and repair anything changed by hand |
 | `npm run lint` | Check the rules a machine can check (no locators in specs, no waits, nothing skipped...) |
-| `npm test` / `npm run test:smoke` | Every test / only `@smoke` |
+| `npm test` / `npm run test:smoke` | Every test on both browsers / only `@smoke` |
+| `npm run test:chromium` / `npm run test:webkit` | Every test on one browser |
 | `npm run test:headed` | Watch the tests drive the browser (Chromium, one at a time) |
 | `npx playwright test tests/pos/sale.spec.js --project=chromium` | One file in one browser |
 | `npm run report` | The last run's report (reporting-labs); `npm run report:playwright` for Playwright's own, with traces |
@@ -82,14 +83,14 @@ page with every test value. Demo users sign in with `DEMO_USER_PASSWORD` from `.
 
 ## CI (GitHub Actions)
 
-[`.github/workflows/tests.yml`](.github/workflows/tests.yml): first **lint**, then ERPNext from
+[`.github/workflows/playwright-e2e.yml`](.github/workflows/playwright-e2e.yml): first **lint**, then ERPNext from
 `retail_pos_india` (`main`) in Docker, the seed, `npm run check`, then the tests.
 
 | When | Tests | Report |
 |---|---|---|
 | Every pull request, every push to `main` | `@smoke` on Chromium (about 5 minutes) | attached to the run (**test-reports**) |
 | Every night (02:00 IST) | every test, Chromium and WebKit | attached, and published to the **[dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/)** |
-| By hand (Actions → Tests → Run workflow) | choose `smoke` or `full`; `full` on `main` also updates the dashboard | as above |
+| By hand (Actions → ERPNext POS · Playwright E2E → Run workflow) | choose the suite (`smoke` or `full`) and the browser (`chromium`, `webkit` or `both`); `full` on `main` also updates the dashboard | as above |
 
 The dashboard is the reporting-labs report of the latest full run: failures ranked by priority,
 the trend, new vs known failures, flaky and slower tests (the run history is kept by the CI cache).
