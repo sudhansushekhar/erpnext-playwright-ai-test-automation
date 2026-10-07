@@ -1,0 +1,17 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Edit|Write",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"$CLAUDE_PROJECT_DIR/scripts/lint-edited-file.js\"",
+            "timeout": 60,
+            "statusMessage": "Linting the edited file against the CLAUDE.md rules"
+          }
+        ]
+      }
+    ]
+  }
+}

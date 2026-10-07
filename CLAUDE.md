@@ -1,95 +1,91 @@
 # CLAUDE.md
 
 Rules for any AI coding agent (and any person) writing tests in this repository.
-The tester writes **test cases** in plain English; the agent turns them into tests; these rules,
-the lint and CI keep the result honest. Read this whole file before writing a test.
+The tester writes **test cases** in plain English; the agent turns them into tests; the rules below,
+the lint, a hook and CI keep the result honest. How the framework is built: [`docs/framework.md`](docs/framework.md).
 
 ## Project
 
-Playwright Test (JavaScript, CommonJS) for **ERPNext**, run locally in Docker
-(`docker/pwd.yml`, site at `http://localhost:8080`, Administrator / admin, local only).
+Playwright Test (JavaScript, CommonJS) for **ERPNext** with the Retail POS India app. The site under
+test is `BASE_URL` in `.env` (locally `http://localhost:8080`, Administrator / admin, local only),
+started from the [retail_pos_india](https://github.com/sudhansushekhar/retail_pos_india) repository.
+This repository holds tests only.
 
 | Path | Role |
 |---|---|
 | `docs/requirements/*.md` | BRD/PRD documents: requirements with IDs (`REQ-POS-012`). What test cases are drafted from. |
-| `docs/test-cases/*.md` | Test cases in plain English: steps, and the exact checks including the record the server saved. One file per spec file. **The source of every test.** |
-| `tests/**/*.spec.js` | Tests: steps and assertions only. No locators. |
-| `src/pages/*.js` | Page objects: one class per screen, one method per thing a user does. All locators live here. |
-| `src/fixtures.js` | `test` and `expect` for every spec, plus `testData`, `api`, and the page objects. |
-| `src/api/FrappeClient.js` | REST client. Reads back the record a test booked, by its name. |
-| `src/seed/data.js` | Every test and demo value (India: INR, GST, items, people). |
-| `src/seed/seed.js` | Builds that data through the API before the run. |
-| `docs/test-data.md` | Every test data value, and worked totals. **Read it before writing a test.** |
-| `docs/ai-review-log.md` | Every mistake an AI made that a review caught, and the rule it led to. |
+| `docs/test-cases/*.md` | Test cases in plain English: steps and exact checks. One file per spec. **The source of every test.** |
+| `tests/<area>/*.spec.js` | Tests: steps and assertions only. |
+| `src/fixtures/` | `test`, `expect` and every fixture (table in `src/fixtures/index.js`). |
+| `src/pages/` | Page objects: one class per screen, one method per user action. **All locators live here.** |
+| `src/api/` | `FrappeClient` (REST: read back records by name) and `Tills` (open/close POS tills). |
+| `src/utils/` | Pure helpers specs may import (money, invoice reading). |
+| `src/seed/` | `data.js`: every test value. `seed.js`: builds it before each run. `check.js`: is the site ready? |
+| `docs/test-data.md` | Every test data value and worked totals. **Read it before writing a test.** |
+| `docs/ai-review-log.md` | Every mistake an AI made that review caught, and the rule it led to. |
 
 ## Commands
 
 ```bash
-npm run erp:up           # start ERPNext in Docker (first start: a few minutes)
 npm run check            # is the site ready? one line per prerequisite, read-only
 npm run seed             # prepare the test data without running tests
+npm run lint             # the rules below that a machine can check
 npm test                 # every test, Chromium and WebKit
-npm run test:smoke       # only @smoke
-npm run test:headed      # watch it, one worker, Chromium
-npm run report           # open the last HTML report
+npx playwright test <file> --project=chromium   # one file
+npm run report           # open the last report
 ```
 
 ## Rules for every test
 
+Rules marked **[lint]** are enforced by `npm run lint`, in CI, and by a hook after every file an AI
+agent edits (`.claude/settings.json`): a violation is sent straight back to the agent.
+
 1. **Start from a test case.** The test's title is the test case's exact heading (`TC-<AREA>-nnn ...`),
-   and its first line names the file (`// Test case: docs/test-cases/pos-sale.md (TC-POS-001)`).
+   and the file's first line names the test case file (`// Test case: docs/test-cases/pos-sale.md (...)`).
    No test case, no test.
-2. **Import `test` and `expect` from `src/fixtures.js`**, never from `@playwright/test`.
-3. **Assert the record the server booked, by its name.** Take the document's name from the
-   screen's own response (`page.waitForResponse`) or from the URL, then read it with
-   `api.getDoc(doctype, name)` and check status, totals and links. Never assert "the latest"
-   record or a count: the site keeps every run's data.
-4. **No locators in specs.** A new user action is a new method on a page object.
-5. **Find elements the way a person does:** `getByRole` with an accessible name, `getByLabel`,
-   `getByText`, `getByPlaceholder`. Use CSS only where nothing else works, and say why in a comment.
-6. **Wait for the server, not the clock.** Wait for a response, a URL, or a visible result.
-   `page.waitForTimeout` is forbidden.
-7. **Set up data through the seed or the API, never through the screens**, unless the screen is
-   what the test is about. Take names and prices from the `testData` fixture
-   (`testData.items.stock.sellingPrice`), never as typed literals. A value the test needs that
-   is not in `docs/test-data.md` is added to the seed and that page first.
-   Through the API, a tax template needs its lines too: `taxes: await api.salesTaxRows(template)`.
-   Amounts are in INR with GST **included in the price**; a sale's cash amount is its `rounded_total`.
-8. **Exactly one tag** per test: `@smoke` (fast, the main path) or `@nightly` (everything else).
-   `@quarantine` replaces `@smoke` on a flaky test, with an owner, an issue and an end date
-   no more than 7 days away.
-9. **Nothing switched off:** no `.skip`, `.only`, `.fixme`, `.fail`. No retries; `retries` stays 0.
-10. **Every test must be able to fail.** When you write one, break the expected value once and
-    watch it go red before you trust it green.
+2. **[lint] Specs import only `src/fixtures` and `src/utils`.** `test` and `expect` never come from
+   `@playwright/test`; page objects, the API and the people come as fixtures.
+3. **Assert the record the server booked, by its name.** Take the name from the screen's own response
+   or the URL, read it with `api.getDoc(doctype, name)`, check status, totals and links. Never assert
+   "the latest" record or a count: the site keeps every run's data.
+4. **[lint] No locators in specs.** A new user action is a new method on a page object.
+5. **Find elements the way a person does:** `getByRole` with a name, `getByLabel`, `getByText`,
+   `getByPlaceholder`. CSS only where nothing else works, with a comment saying why.
+6. **[lint] Wait for the server, not the clock.** Wait for a response, a URL or a visible result.
+   No `page.waitForTimeout`.
+7. **Set up data through the seed or the API, never through the screens**, unless the screen is what
+   the test is about. Values come from the `testData` fixture, people from `users` (`users.cashier`),
+   never as typed literals. A value not in `docs/test-data.md` is added to `src/seed/data.js` and
+   that page first. Through the API a tax template needs its lines: `taxes: await api.salesTaxRows(t)`.
+   Amounts are INR with GST **included in the price**; a sale's cash amount is its `rounded_total`.
+8. **Exactly one tag:** `@smoke` (fast, the main path) or `@nightly` (everything else). `@quarantine`
+   replaces `@smoke` on a flaky test, with an owner, an issue and an end date within 7 days.
+9. **[lint] Nothing switched off:** no `.only`, `.skip`, `.fixme`, `.fail`. `retries` stays 0.
+10. **Every test must be able to fail.** Break the expected value (or the state, for a visibility
+    check) once and watch it go red before trusting it green (`/mutation-check`).
 11. **Never type or commit a real credential.** Only the local Docker values in `.env`.
-12. **One sign-in per user at a time.** The `api` fixture is signed in as Administrator; signing the
-    same user in again while a page of theirs is loading makes that page show "Server Error". UI tests
-    sign the browser in as a demo user (cashier, manager); when the browser must be Administrator,
-    create the API session first.
+12. **One sign-in per user at a time.** The `api` fixture is Administrator; signing the same user in
+    again while a page of theirs loads shows "Server Error". UI tests sign the browser in as a demo
+    user; when the browser must be Administrator, create the API session first.
 
 ## Test cases from requirements (BRD / PRD)
 
-When asked to draft test cases from a document in `docs/requirements/`:
-
-1. **One requirement, at least one test case**, and the **unhappy path** as its own test case
-   (refused, invalid, not allowed). Each test case names its requirement: `**Requirement:** REQ-POS-012`.
-2. **Use only what the document and `docs/test-data.md` say.** Exact values (amounts, messages)
-   come from them. Never invent a business rule, a message or an amount.
-3. **Anything unclear becomes a question**, listed under `## Open questions` in the test case
-   file, not a guess. Contradictions between the document and the site are listed there too.
-4. Write drafts in the test case format (`docs/test-cases/README.md`) with `Status: draft`.
-   **No test code is written from a draft:** a tester reviews it and sets `Status: approved`.
-5. End with a **coverage table**: every requirement ID in the document, and the test cases that
-   cover it (or "not covered: why").
+1. **One requirement, at least one test case**, and the **unhappy path** as its own test case. Each
+   names its requirement: `**Requirement:** REQ-POS-012`.
+2. **Use only what the document and `docs/test-data.md` say.** Never invent a rule, message or amount.
+3. **Anything unclear becomes a question** under `## Open questions`, not a guess.
+4. Drafts are `Status: draft`. **No test code from a draft:** a tester approves it first.
+5. End with a **coverage table**: every requirement ID and its test cases (or "not covered: why").
 
 ## Rules for the agent
 
-- Read the test case and the existing page objects before writing anything. Reuse methods.
+- Read the test case, `src/fixtures/index.js` and the page objects before writing. Reuse methods.
 - Write code only from a test case with `Status: approved` (or one written by a tester).
-- Reusable prompts for this workflow are slash commands in `.claude/commands/`
-  (`/test-cases`, `/write-test`, `/review-test`, `/mutation-check`); see `docs/ai-workflow.md`.
+- Use the slash commands in `.claude/commands/` (`/test-cases`, `/write-test`, `/review-test`,
+  `/mutation-check`); the loop is in `docs/ai-workflow.md`.
 - If the test case is ambiguous, stop and ask; do not invent business rules or expected values.
-- After writing a test, run it (`npx playwright test <file> --project=chromium`) and report
-  the real result. Do not claim a pass you did not see.
-- When a review finds a mistake you made, it goes in `docs/ai-review-log.md` with the rule
-  that prevents it, and the rule is added here.
+- **Verify before you report:** `npm run lint`, then `npx playwright test <file> --project=chromium`.
+  Report the real result; never claim a pass you did not see.
+- When a run or review finds a mistake you made, log it in `docs/ai-review-log.md` with the rule
+  that prevents it, and add the rule here (or to the lint).
+- Never commit or push without the tester's go-ahead.

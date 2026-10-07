@@ -16,7 +16,7 @@ requirement (BRD/PRD)  ──/test-cases──▶  test case (draft)  ──you 
 
 | # | Step | Command / where | Who |
 |---|---|---|---|
-| 1 | Start ERPNext, check it is ready | `npm run erp:up`, `npm run check` | you |
+| 1 | Start ERPNext (retail_pos_india: `npm run erp:up`), check it is ready | `npm run check` | you |
 | 2 | Requirements in, with IDs | `docs/requirements/<feature>.md` | you (or a BA) |
 | 3 | Draft test cases from them | `/test-cases docs/requirements/pos-sale-prd.md REQ-POS-009..013` | AI |
 | 4 | **Review the draft**: right values? missing cases? answer the open questions; set `Status: approved` | `docs/test-cases/<area>.md` | **you** |
@@ -49,15 +49,29 @@ Without the commands, plain prompts work too, for example:
 ## Reviewing an AI-written test (the checklist)
 
 1. Title = a test case heading; first line names the test case file.
-2. `test` / `expect` from `src/fixtures.js`.
+2. Imports only `src/fixtures` and `src/utils` (the lint checks it).
 3. Checks the **saved record by its name**, not only the screen.
 4. No locators in the spec; locators by role, label or visible text.
-5. No `waitForTimeout`, `.skip`, `.only`, retries.
+5. No `waitForTimeout`, `.skip`, `.only`, retries (the lint checks it).
 6. Values from `testData`; amounts match `docs/test-data.md`.
 7. Exactly one tag.
 8. Cleans up what it opens (POS session, drafts).
 9. **Would fail if the feature broke** (the mutation check proves it).
 10. Asserts everything the test case says, and nothing it does not.
+
+## Guardrails: rules checked by machines
+
+An AI agent forgets instructions; a check does not. Every rule that can be checked by a program is:
+
+| Check | When | What happens on a break |
+|---|---|---|
+| `npm run lint` (`eslint.config.js`) | any time | lists each break with the CLAUDE.md rule number |
+| Edit hook (`.claude/settings.json` → `scripts/lint-edited-file.js`) | after **every file the AI edits** in `tests/` or `src/` | the lint output goes straight back to the agent, which fixes it before going on |
+| CI (`.github/workflows/tests.yml`) | every pull request | the pull request shows red: lint first, then the tests on a fresh ERPNext |
+| Mutation check (`/mutation-check`) | every new test | proves the test can fail |
+
+What a machine cannot check (the right expected values, a missing case, testing the screen only)
+is what **your** review is for: steps 4 and 6 above, and the checklist below.
 
 ## From a BRD / PRD
 

@@ -28,8 +28,8 @@ async function main() {
     const res = await ping.get('/api/method/ping', { timeout: 10000 })
     expect(res.ok(), `HTTP ${res.status()}`)
     results.push({ ok: true, label: 'ERPNext is running', detail: ENV.baseUrl })
-  } catch (err) {
-    results.push({ ok: false, label: 'ERPNext is running', detail: `${ENV.baseUrl} does not answer: start it with npm run erp:up` })
+  } catch {
+    results.push({ ok: false, label: 'ERPNext is running', detail: `${ENV.baseUrl} does not answer: start it from the retail_pos_india folder: npm run erp:up` })
     return
   } finally {
     await ping.dispose()
@@ -48,7 +48,7 @@ async function main() {
     await check('Company, India settings', async () => {
       const company = await api.findDoc('Company', d.company)
       expect(company, `company ${d.company} missing (setup wizard not run)`)
-      expect(company.default_currency === d.currency && company.country === d.country, `${d.company} is ${company.country}/${company.default_currency}, expected ${d.country}/${d.currency}: rebuild with npm run erp:reset`)
+      expect(company.default_currency === d.currency && company.country === d.country, `${d.company} is ${company.country}/${company.default_currency}, expected ${d.country}/${d.currency}: rebuild it from the retail_pos_india folder: npm run erp:reset`)
       const today = new Date().toISOString().slice(0, 10)
       const years = await api.getList('Fiscal Year', {
         filters: [['year_start_date', '<=', today], ['year_end_date', '>=', today]],
@@ -120,11 +120,11 @@ async function main() {
     await check('Retail POS India app installed', async () => {
       const apps = await api.getDoc('Installed Applications', 'Installed Applications')
       const row = (apps.installed_applications || []).find((a) => a.app_name === 'retail_pos_india')
-      expect(row, 'not installed: run npm run erp:apps')
+      expect(row, 'not installed: from the retail_pos_india folder run npm run erp:app')
       const settings = await api.getDoc('POS Settings', 'POS Settings')
       const shown = (settings.invoice_fields || []).map((f) => f.fieldname)
       for (const f of ['rpi_card_type', 'rpi_card_last4', 'rpi_card_approval_code', 'rpi_upi_reference']) {
-        expect(shown.includes(f), `${f} missing from the POS payment screen: run npm run erp:apps`)
+        expect(shown.includes(f), `${f} missing from the POS payment screen: from the retail_pos_india folder run npm run erp:app`)
       }
       return `v${row.app_version}: number pad, card and UPI fields on the payment screen, wider cart`
     })

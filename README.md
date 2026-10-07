@@ -1,245 +1,113 @@
 # erpnext-playwright-ai-test-automation
 
-AI-assisted test automation for **ERPNext** with Playwright.
+AI-assisted test automation for **ERPNext** (Point of Sale for Indian retail) with Playwright.
 
-A tester writes **test cases** in plain English. An AI coding agent turns them into
-Playwright tests under the rules in [`CLAUDE.md`](CLAUDE.md). Every test reads back the
-record the server booked, by its name, and the rules, a lint and CI catch what the AI gets wrong.
-What it got wrong is logged in [`docs/ai-review-log.md`](docs/ai-review-log.md).
+A tester writes **test cases** in plain English. An AI coding agent turns them into Playwright tests
+under the rules in [`CLAUDE.md`](CLAUDE.md). Every test reads back the record the server booked, by
+its name. A lint, a hook on every AI edit and CI check the rules; what the AI got wrong is logged in
+[`docs/ai-review-log.md`](docs/ai-review-log.md).
 
-> Work in progress: one-week build, day by day. New machine? Start at [Setup on a new machine](#setup-on-a-new-machine).
+**How it is built, in one page: [docs/framework.md](docs/framework.md).**
+How to work with the AI day to day: [docs/ai-workflow.md](docs/ai-workflow.md).
 
-## Working with AI
+## Two repositories
 
-Requirements (BRD/PRD) → test cases → tests, with Claude Code doing the writing and the tester
-reviewing each step. Slash commands in `.claude/commands/`: `/test-cases`, `/write-test`,
-`/review-test`, `/mutation-check`. The loop, the prompts and the review checklist:
-**[docs/ai-workflow.md](docs/ai-workflow.md)**. A sample PRD: [docs/requirements/pos-sale-prd.md](docs/requirements/pos-sale-prd.md).
+| | |
+|---|---|
+| **this one** | requirements, test cases, tests, test data (seed) |
+| [**retail_pos_india**](https://github.com/sudhansushekhar/retail_pos_india) | the app under test, and ERPNext in Docker with it |
 
 ## Setup on a new machine
 
-Everything the tests need is rebuilt from this repository: ERPNext runs in Docker, and the
-seed prepares the test data. Nothing is configured by hand. Run the commands in **Git Bash** or
-**PowerShell**, one line at a time.
+Needs **Git**, **Node.js 20+**, and **Docker Desktop** (running, at least 4 GB of memory).
+Run each command on its own line (Git Bash or PowerShell).
 
-### 1. Install once
+**1. Start ERPNext** (from the app repository; first start 5–15 minutes):
 
-| Tool | Version | Check |
-|---|---|---|
-| Git | any | `git --version` |
-| Docker Desktop (on Windows: with the WSL 2 engine) | any recent | `docker version` |
-| Node.js | 20 or newer | `node --version` |
+```bash
+git clone https://github.com/sudhansushekhar/retail_pos_india.git
+cd retail_pos_india
+npm run erp:up
+npm run erp:app
+cd ..
+```
 
-Docker Desktop must be **running** before step 3. Give it at least 4 GB of memory
-(Settings → Resources) and about 5 GB of free disk for the ERPNext images.
+Wait until http://localhost:8080/api/method/ping answers `{"message":"pong"}` before `erp:app`.
+Stopping, resetting, backups and troubleshooting: the [app's README](https://github.com/sudhansushekhar/retail_pos_india#run-erpnext-with-this-app-locally-docker).
 
-### 2. Get the code
-
-Two repositories, cloned **side by side** in the same folder: this one (the tests) and
-`retail_pos_india` (our POS app, which the Docker ERPNext loads from the folder next to this one):
+**2. Get the tests ready:**
 
 ```bash
 git clone https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation.git
-git clone https://github.com/sudhansushekhar/retail_pos_india.git
 cd erpnext-playwright-ai-test-automation
 cp .env.example .env
 npm install
 npx playwright install chromium webkit
 ```
 
-```
-CareerPath/
-  erpnext-playwright-ai-test-automation/   tests, seed, Docker setup (this repository)
-  retail_pos_india/      the Retail POS India app
-```
-
-`.env` holds the local Docker site's address and its Administrator password (`admin`).
-It is never committed. `retail_pos_india` somewhere else? Set `RETAIL_POS_INDIA_PATH` in `.env` to its full path.
-
-### 3. Start ERPNext
+**3. Prepare the data and run:**
 
 ```bash
-npm run erp:up
-```
-
-The first start downloads the images (about 2 GB) and creates the site; allow 5–15 minutes.
-It is ready when this answers `{"message":"pong"}`:
-
-```bash
-curl http://localhost:8080/api/method/ping
-```
-
-Then install our app on the site (safe to run again; it migrates when already installed):
-
-```bash
-npm run erp:apps
-```
-
-### 4. Prepare the test data and run the tests
-
-```bash
-npm run seed            # builds the company, GST, items, users, tills... (first run: a few minutes)
-npm run check           # is the site ready? every line must be ✅ (read-only)
+npm run seed            # company, GST, items, users, tills... (first run: a few minutes)
+npm run check           # every line must be ✅ (read-only)
 npm run test:smoke      # the quick @smoke tests
 npm test                # every test, Chromium and WebKit
-npm run report          # open the HTML report of the last run
+npm run report          # open the report of the last run
 ```
 
-On a brand-new site the seed completes ERPNext's setup wizard (India, INR), then creates what the
-tests use (see [What the seed prepares](#what-the-seed-prepares)). On later runs it only adds what
-is missing. Before the first seed, `npm run check` shows ❌: that is expected.
-
 Then sign in at http://localhost:8080 as **Administrator / admin**: you land on the **QA Testing**
-page. The demo users (cashiers, manager, admin) sign in with `DEMO_USER_PASSWORD` from `.env`.
+page with every test value. Demo users sign in with `DEMO_USER_PASSWORD` from `.env`.
 
-### Start again from nothing
-
-Deleting the folders does **not** delete ERPNext's data: the site lives in Docker volumes. To
-rebuild everything from scratch:
-
-1. In this folder, wipe the site. **This is the step that deletes the data** (every record, POS
-   session and sale); it asks you to type `RESET` to continue:
-   ```bash
-   npm run erp:reset
-   ```
-   Skip this step to keep the old site: the new folders then connect to the same data.
-2. Delete the two folders (`erpnext-playwright-ai-test-automation`, `retail_pos_india`). Close any
-   editor, File Explorer window or terminal that has them open first, or Windows refuses.
-3. Follow this setup again from step 2. The Docker images stay downloaded, so step 3 takes a few
-   minutes instead of fifteen.
-
-### Everyday commands
+## Commands
 
 | Command | What it does |
 |---|---|
-| `npm run erp:up` | Start ERPNext (keeps its data), with our apps mounted |
-| `npm run erp:apps` | Install our apps on the site, or migrate them after a change |
-| `npm run erp:down` | Stop ERPNext (keeps its data) |
-| `npm run erp:reset` | Stop ERPNext and **delete its data** (asks you to type `RESET` first); the next `erp:up` builds a fresh site |
-| `npm run erp:backup` | Full backup of the site (database + files) into a dated folder; see [Backup and restore](#backup-and-restore) |
-| `npm run erp:restore` | Put a backup back (asks you to type `RESTORE` first) |
-| `npm run erp:logs` | Follow the site-creation and server logs |
-| `npm run check` | **Is the site ready?** One ✅/❌ line per prerequisite; changes nothing |
+| `npm run check` | Is the site ready for the tests? One ✅/❌ line per prerequisite; changes nothing |
 | `npm run seed` | Prepare the test data now, and repair anything changed by hand |
+| `npm run lint` | Check the rules a machine can check (no locators in specs, no waits, nothing skipped...) |
+| `npm test` / `npm run test:smoke` | Every test / only `@smoke` |
 | `npm run test:headed` | Watch the tests drive the browser (Chromium, one at a time) |
-| `npx playwright test tests/access/sign-in.spec.js --project=chromium` | Run one file in one browser |
+| `npx playwright test tests/pos/sale.spec.js --project=chromium` | One file in one browser |
+| `npm run report` | The last run's report (reporting-labs); `npm run report:playwright` for Playwright's own, with traces |
 
-### If something goes wrong
-
-| Symptom | Fix |
+| Problem | Fix |
 |---|---|
-| `npm install` fails with **403 Forbidden** from `www.npmjs.com` | Your global npm registry is wrong. This repo's `.npmrc` fixes it for this folder; to fix it everywhere: `npm config set registry https://registry.npmjs.org/` |
-| `erp:up` says **port 8080 is already allocated** | Something else uses 8080. Stop it, or change `"8080:8080"` in `docker/pwd.yml` to e.g. `"8081:8080"` and `BASE_URL` in `.env` to match |
-| `ping` does not answer after 15 minutes | `npm run erp:logs`; if the site creation failed, `npm run erp:reset` then `npm run erp:up` |
-| The seed fails with **HTTP 401** | The Administrator password is not the one in `.env`. On a fresh Docker site it is `admin` |
-| Tests fail on a site you changed by hand | Reset to a clean site: `npm run erp:reset`, `npm run erp:up`, `npm run erp:apps` |
-| **502 Bad Gateway** after `erp:up` | nginx still points at the old backend container: `docker restart erpnext-qa-frontend-1` (`erp:up` does this for you) |
-| A change in `retail_pos_india` does not show | Python or hooks: `docker restart erpnext-qa-backend-1`. The POS script: `docker exec erpnext-qa-backend-1 bench --site frontend clear-cache`, then a **hard reload** of the page (**Ctrl+Shift+R**): the browser keeps the old POS script until then |
+| `npm install` fails with **403** | Your global npm registry is wrong; this repo's `.npmrc` fixes it here, or: `npm config set registry https://registry.npmjs.org/` |
+| The seed fails with **HTTP 401** | The Administrator password is not the one in `.env` (`admin` on a fresh Docker site) |
+| `npm run check` shows ❌ | `npm run seed`, then check again; it says what to do for anything the seed cannot fix |
+| Tests fail on a site changed by hand | Reset it from the app repository (`npm run erp:reset`, `erp:up`, `erp:app`), then `npm run seed` |
 
 ## CI (GitHub Actions)
 
-[`.github/workflows/smoke.yml`](.github/workflows/smoke.yml) runs the **@smoke** tests on Chromium on
-every pull request and every push to `main`, or by hand (Actions → Smoke → Run workflow). It builds
-the same stack as above on a fresh runner: ERPNext in Docker, `retail_pos_india` from its `main`
-branch, the app installed, then the seed and the tests (about 15–20 minutes, most of it creating the
-site). The reports (reporting-labs, Playwright's with traces) are attached to the run as
-**smoke-reports**. Credentials are the local Docker values of `.env.example`; the site exists only
-inside the job.
-
-## Backup and restore
-
-The site's data lives in Docker, not in these folders (see [Start again from nothing](#start-again-from-nothing)).
-To keep it, for example sales and POS sessions you made by hand, back it up.
-
-```bash
-npm run erp:backup
-```
-
-Saves the **whole site** (every record: POS invoices, opening and closing entries, POS profiles,
-items, customers, users, settings) and its attached files into a dated folder:
-
-```
-erpnext-backups/2026-10-07_005346/
-  ...-database.sql.gz            the database (about 1 MB for this site)
-  ...-files.tar, ...-private-files.tar
-  ...-site_config_backup.json    settings, incl. the encryption key
-  manifest.json                  when, and which apps and versions
-```
-
-⚠ The folder holds all the site's data and its **encryption key**: keep it private, never in a public repository.
-The newest 30 backups are kept (`BACKUP_KEEP` in `.env`).
-
-```bash
-npm run erp:restore                              # the newest backup
-npm run erp:restore -- 2026-10-07_005346         # a given one
-```
-
-Restore **replaces everything on the site** with the backup, so it asks you to type `RESTORE`.
-Then it migrates (if the apps are newer than the backup) and clears the cache. Checked: a customer
-added after a backup was gone after restoring it, and the site passed `npm run check` and the tests.
-
-### Backups in Google Drive
-
-1. Install **Google Drive for desktop** (https://www.google.com/drive/download/) and sign in with your
-   personal Google account. It adds a drive such as `G:\My Drive` that syncs to Google Drive.
-2. In `.env`, set:
-   ```
-   BACKUP_DIR=G:\My Drive\ERPNext-Backups
-   ```
-3. `npm run erp:backup` now saves straight into Google Drive.
-
-**On another laptop:** install Google Drive for desktop, set up this repository (steps above),
-then `npm run erp:restore`: the newest backup comes back from Google Drive.
-
-### A backup every day (optional)
-
-Windows Task Scheduler can run the backup every evening (the laptop must be on, Docker running):
-
-```bash
-schtasks /create /tn "ERPNext backup" /sc daily /st 21:00 /tr "cmd /c cd /d D:\CareerPath\erpnext-playwright-ai-test-automation && npm run erp:backup >> ..\erpnext-backups\backup.log 2>&1"
-```
-
-Remove it with `schtasks /delete /tn "ERPNext backup"`.
+[`.github/workflows/tests.yml`](.github/workflows/tests.yml) runs on every pull request, every push to
+`main`, every night, or by hand: first **lint**, then ERPNext from `retail_pos_india` (`main`) in Docker, the seed,
+`npm run check`, then the **@smoke** tests on Chromium (about 5 minutes); every night, every test on both browsers. Reports are attached to the
+run as **test-reports**.
 
 ## What the seed prepares
 
-Tests never depend on anything clicked by hand. Whatever a test needs is created by the seed
-([`src/seed/seed.js`](src/seed/seed.js)) before every run, so every machine and every CI run
-starts from the same data. Market: **India, INR**.
+Tests never depend on anything clicked by hand: whatever they need is created by the seed
+([`src/seed/seed.js`](src/seed/seed.js)) before every run. Market: **India, INR**.
 
-- Company **QA Retail** (India, ₹, Asia/Kolkata, financial year April-March)
-- **GST** as CGST + SGST, **included in prices**, slabs 0% / 5% / 18% (illustrative demo rates)
-- Payment modes **Cash, UPI, Debit Card, Credit Card**; POS profiles **QA POS**, **Till 1**, **Till 2**
-- Test items with round numbers (QA-STOCK-001 ₹118.00 = ₹100.00 + CGST ₹9.00 + SGST ₹9.00) and
-  11 demo grocery, personal care, home care, electronics and apparel items, with stock
-- Demo customers (Walk-in Customer, customers in Delhi, Chennai, Hyderabad, Pune, Lucknow) and suppliers
-- Demo users: 2 **cashiers**, a **store manager**, an **admin** (password: `DEMO_USER_PASSWORD` in `.env`)
-- The **QA Testing** page in ERPNext, where you see all of it after signing in
+- Company **QA Retail** (₹, Asia/Kolkata, financial year April-March); **GST** as CGST + SGST,
+  **included in prices**, slabs 0% / 5% / 18% (illustrative demo rates)
+- Payment modes **Cash, UPI, Debit Card, Credit Card**; tills **Till 1** (Anjali), **Till 2** (Rohit), **QA POS**
+- Test items with round numbers (QA-STOCK-001 ₹118.00 = ₹100.00 + CGST ₹9.00 + SGST ₹9.00), 11 demo items, stock
+- Demo customers and suppliers; users: 2 **cashiers**, a **store manager**, an **admin**
+- The **QA Testing** page in ERPNext, listing all of it
 
-**Every value, the people, and 13 measured GST examples: [`docs/test-data.md`](docs/test-data.md).** The values themselves live in [`src/seed/data.js`](src/seed/data.js).
-
-## How it fits together
-
-| Layer | Where |
-|---|---|
-| Requirements (BRD/PRD) with IDs | `docs/requirements/` |
-| Test cases in plain English (the tester's work) | `docs/test-cases/` |
-| Reusable AI prompts (slash commands) | `.claude/commands/` |
-| Rules the AI must follow | `CLAUDE.md` |
-| Tests: steps and assertions only | `tests/` |
-| Page objects: every locator | `src/pages/` |
-| Test and demo data: values in `src/seed/data.js`, built by `src/seed/seed.js` before every run | `src/seed/`, explained in `docs/test-data.md` |
-| Read-back of booked records | `src/api/FrappeClient.js` |
+**Every value, the people, and 13 measured GST examples: [`docs/test-data.md`](docs/test-data.md).**
 
 ## Words used here
 
 | Word | Plain meaning |
 |---|---|
-| **Test case** | Written in plain English in `docs/test-cases/`: steps, and exact checks including the record the server saved. The tester writes it; every test is generated from one. |
-| **Seed** | A script that prepares the test data before tests run (a company, a customer, an item). It only creates what is missing, so running it again is safe. Like setting the table before the guests arrive. |
-| **Test data file** | `.results/test-data.json`: the names of what the seed prepared, so tests use exactly those. |
-| **Fixture** | Something every test gets ready-made (the login page, an API connection), set up before the test and cleaned up after it. |
-| **Page object** | One file per screen that knows how to find things and do actions on it. Tests call its methods and never hold locators. |
+| **Test case** | Plain English in `docs/test-cases/`: steps and exact checks. Written (or approved) by the tester; every test comes from one. |
+| **Seed** | Prepares the test data before the tests run. It only creates what is missing, so running it again is safe. |
+| **Fixture** | Something a test asks for by name and gets ready-made (the POS with an open till, an API session), cleaned up after it. |
+| **Page object** | One class per screen that knows how to find things and do actions on it. Tests call its methods and never hold locators. |
 | **Read back by name** | After the screen saves something, ask the server for that exact record and check it, not "the latest one". |
 | **Mutation check** | Break a test on purpose to prove it can fail. A test that cannot fail proves nothing. |
+| **Lint** | A program that reads the code and reports rule breaks before anything runs. |
+| **Hook** | A command Claude Code runs automatically after each file the AI edits: here, the lint. |
 | **@smoke / @nightly** | Tags: `@smoke` tests are quick and run on every change; `@nightly` tests run once a day. |
