@@ -29,6 +29,9 @@ module.exports = [
       // Readable names: `transaction`, `testCase`, `counter`, not `tx`, `tc`, `c`. Object keys are
       // free (they often mirror ERPNext fields such as `qty`).
       'id-length': ['error', { min: 3, properties: 'never', exceptions: ['id', 'fs', '_'] }],
+      // ...and no abbreviations id-length cannot see: `response`, not `res`; `error`, not `err`.
+      // (`doc`, `qty`, `api`, `env`, `pos` stay: Frappe's and ERPNext's own words.)
+      'id-denylist': ['error', 'res', 'resp', 'req', 'ctx', 'err', 'tpl', 'inv', 'obj', 'btn', 'msg', 'cfg', 'idx', 'val', 'tmp', 'utr'],
       'no-shadow': 'error', // a renamed variable must not hide another of the same name (docs/ai-review-log.md)
     },
   },

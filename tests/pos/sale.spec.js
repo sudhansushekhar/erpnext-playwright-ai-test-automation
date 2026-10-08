@@ -57,7 +57,7 @@ test('TC-POS-002 a cashier sells by UPI: the transaction ID is saved with the sa
 }) => {
   meta({ priority: 'P0', severity: 'blocker', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-011' })
   const item = counter.item
-  const utr = testData.paymentDetails.upiReference
+  const upiReference = testData.paymentDetails.upiReference
 
   await pos.addItem(item)
   await pos.checkout()
@@ -69,13 +69,13 @@ test('TC-POS-002 a cashier sells by UPI: the transaction ID is saved with the sa
   await expect(pos.field('Card Last 4 Digits'), 'No Card Last 4 Digits field for UPI').toBeHidden()
   await expect(pos.field('Card Approval Code'), 'No Card Approval Code field for UPI').toBeHidden()
 
-  await pos.setUpiReference(utr)
+  await pos.setUpiReference(upiReference)
   const sale = await pos.completeOrder()
   expect(sale.accepted, 'The server accepted the sale').toBe(true)
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)
   expect.soft(paidRows(invoice), 'Paid in full by UPI').toEqual([{ mode: 'UPI', amount: item.sellingPrice }])
-  expect.soft(invoice, 'Saved invoice keeps the UPI transaction ID').toMatchObject({ docstatus: 1, grand_total: item.sellingPrice, rpi_upi_reference: utr })
+  expect.soft(invoice, 'Saved invoice keeps the UPI transaction ID').toMatchObject({ docstatus: 1, grand_total: item.sellingPrice, rpi_upi_reference: upiReference })
   expect.soft(invoice.rpi_card_type || null, 'No card type saved').toBeNull()
   expect.soft(invoice.rpi_card_last4 || null, 'No card last 4 digits saved').toBeNull()
   expect.soft(invoice.rpi_card_approval_code || null, 'No card approval code saved').toBeNull()

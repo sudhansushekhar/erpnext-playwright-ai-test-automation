@@ -14,8 +14,8 @@ const check = async (label, run) => {
   try {
     const detail = await run()
     results.push({ ok: true, label, detail })
-  } catch (err) {
-    results.push({ ok: false, label, detail: err.message })
+  } catch (error) {
+    results.push({ ok: false, label, detail: error.message })
   }
 }
 const expect = (condition, problem) => {
@@ -25,8 +25,8 @@ const expect = (condition, problem) => {
 async function main() {
   const ping = await request.newContext({ baseURL: ENV.baseUrl })
   try {
-    const res = await ping.get('/api/method/ping', { timeout: 10000 })
-    expect(res.ok(), `HTTP ${res.status()}`)
+    const response = await ping.get('/api/method/ping', { timeout: 10000 })
+    expect(response.ok(), `HTTP ${response.status()}`)
     results.push({ ok: true, label: 'ERPNext is running', detail: ENV.baseUrl })
   } catch {
     results.push({ ok: false, label: 'ERPNext is running', detail: `${ENV.baseUrl} does not answer: start it from the retail_pos_india folder: npm run erp:up` })
@@ -39,8 +39,8 @@ async function main() {
   try {
     api = await FrappeClient.signIn(ENV.baseUrl, ENV.adminUser, ENV.adminPassword)
     results.push({ ok: true, label: `Sign in as ${ENV.adminUser}`, detail: 'password from .env works' })
-  } catch (err) {
-    results.push({ ok: false, label: `Sign in as ${ENV.adminUser}`, detail: err.message })
+  } catch (error) {
+    results.push({ ok: false, label: `Sign in as ${ENV.adminUser}`, detail: error.message })
     return
   }
 
@@ -109,9 +109,9 @@ async function main() {
 
     await check('GST', async () => {
       for (const template of Object.values(testData.gst.slabs)) expect(await api.findDoc('Item Tax Template', template), `item tax template ${template} missing`)
-      const tpl = await api.findDoc('Sales Taxes and Charges Template', testData.gst.template)
-      expect(tpl, `template ${testData.gst.template} missing`)
-      expect((tpl.taxes || []).every((line) => line.included_in_print_rate), 'GST lines are not included in the price')
+      const salesTemplate = await api.findDoc('Sales Taxes and Charges Template', testData.gst.template)
+      expect(salesTemplate, `template ${testData.gst.template} missing`)
+      expect((salesTemplate.taxes || []).every((line) => line.included_in_print_rate), 'GST lines are not included in the price')
       const defaults = await api.getList('Sales Taxes and Charges Template', { filters: [['company', '=', testData.company], ['is_default', '=', 1]] })
       expect(defaults.length === 1 && defaults[0].name === testData.gst.template, `default template(s): ${defaults.map((template) => template.name).join(', ') || 'none'}, expected only ${testData.gst.template}`)
       return `${testData.gst.template} (CGST + SGST, included in prices) is the only default · slabs ${Object.keys(testData.gst.slabs).join('%, ')}%`
@@ -227,7 +227,7 @@ async function main() {
 }
 
 main()
-  .catch((err) => results.push({ ok: false, label: 'Check', detail: err.message }))
+  .catch((error) => results.push({ ok: false, label: 'Check', detail: error.message }))
   .finally(() => {
     for (const result of results) console.log(`${result.info ? 'ℹ️ ' : result.ok ? '✅' : '❌'} ${result.label}: ${result.detail}`)
     const failed = results.filter((result) => !result.ok).length

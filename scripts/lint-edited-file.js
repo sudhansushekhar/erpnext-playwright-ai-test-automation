@@ -28,8 +28,8 @@ process.stdin.on('end', () => {
       encoding: 'utf8',
       stdio: ['ignore', 'pipe', 'pipe'],
     })
-  } catch (err) {
-    process.stderr.write(`Lint (CLAUDE.md rules) failed for ${rel}; fix it before going on:\n${err.stdout || ''}${err.stderr || ''}`)
+  } catch (error) {
+    process.stderr.write(`Lint (CLAUDE.md rules) failed for ${rel}; fix it before going on:\n${error.stdout || ''}${error.stderr || ''}`)
     process.exit(2)
   }
 })

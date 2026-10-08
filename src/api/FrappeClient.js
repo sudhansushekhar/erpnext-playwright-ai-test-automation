@@ -6,51 +6,51 @@
  * every run's data, so those can match another run's record.
  *
  *   const api = await FrappeClient.signIn(baseUrl, user, password)
- *   const inv = await api.getDoc('Sales Invoice', name)
+ *   const invoice = await api.getDoc('Sales Invoice', name)
  */
 const { request } = require('@playwright/test')
 const { step, note } = require('../report')
 
 class FrappeClient {
-  /** @param {import('@playwright/test').APIRequestContext} ctx */
-  constructor(ctx) {
-    this.ctx = ctx
+  /** @param {import('@playwright/test').APIRequestContext} requestContext */
+  constructor(requestContext) {
+    this.requestContext = requestContext
   }
 
   /** A new API session signed in as `user`. Call dispose() when done. */
   static async signIn(baseUrl, user, password) {
-    const ctx = await request.newContext({ baseURL: baseUrl })
-    const res = await ctx.post('/api/method/login', { data: { usr: user, pwd: password } })
-    if (!res.ok()) {
-      await ctx.dispose()
-      throw new Error(`Sign-in as ${user} failed: HTTP ${res.status()}`)
+    const requestContext = await request.newContext({ baseURL: baseUrl })
+    const response = await requestContext.post('/api/method/login', { data: { usr: user, pwd: password } })
+    if (!response.ok()) {
+      await requestContext.dispose()
+      throw new Error(`Sign-in as ${user} failed: HTTP ${response.status()}`)
     }
-    return new FrappeClient(ctx)
+    return new FrappeClient(requestContext)
   }
 
   /** Wrap an existing request context, e.g. page.request, which shares the browser's session. */
-  static fromContext(ctx) {
-    return new FrappeClient(ctx)
+  static fromContext(requestContext) {
+    return new FrappeClient(requestContext)
   }
 
   async dispose() {
-    await this.ctx.dispose()
+    await this.requestContext.dispose()
   }
 
   async getDoc(doctype, name) {
     return step(`Read ${doctype} ${name} from the server`, async () =>
-      this._json(await this.ctx.get(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`)))
+      this._json(await this.requestContext.get(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`)))
   }
 
   /** The doc, or null when it does not exist. */
   async findDoc(doctype, name) {
-    const res = await this.ctx.get(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`)
-    if (res.status() === 404) return null
-    return this._json(res)
+    const response = await this.requestContext.get(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`)
+    if (response.status() === 404) return null
+    return this._json(response)
   }
 
   async insert(doctype, doc) {
-    return this._json(await this.ctx.post(`/api/resource/${encodeURIComponent(doctype)}`, { data: doc }))
+    return this._json(await this.requestContext.post(`/api/resource/${encodeURIComponent(doctype)}`, { data: doc }))
   }
 
   /**
@@ -60,8 +60,8 @@ class FrappeClient {
    *   { taxes_and_charges: name, taxes: await api.salesTaxRows(name) }
    */
   async salesTaxRows(templateName) {
-    const tpl = await this.getDoc('Sales Taxes and Charges Template', templateName)
-    return tpl.taxes.map(({ charge_type, account_head, description, rate, tax_amount, included_in_print_rate }) =>
+    const template = await this.getDoc('Sales Taxes and Charges Template', templateName)
+    return template.taxes.map(({ charge_type, account_head, description, rate, tax_amount, included_in_print_rate }) =>
       charge_type === 'Actual'
         ? { charge_type, account_head, description, tax_amount } // a fixed amount, e.g. a delivery charge
         : { charge_type, account_head, description, rate, included_in_print_rate }, // e.g. GST inside the MRP
@@ -96,7 +96,7 @@ class FrappeClient {
   /** Change some fields of an existing record. */
   async update(doctype, name, fields) {
     return this._json(
-      await this.ctx.put(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`, { data: fields }),
+      await this.requestContext.put(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`, { data: fields }),
     )
   }
 
@@ -106,7 +106,7 @@ class FrappeClient {
       fields: JSON.stringify(fields),
       limit_page_length: String(limit),
     })
-    return this._json(await this.ctx.get(`/api/resource/${encodeURIComponent(doctype)}?${params}`))
+    return this._json(await this.requestContext.get(`/api/resource/${encodeURIComponent(doctype)}?${params}`))
   }
 
   /**
@@ -115,10 +115,10 @@ class FrappeClient {
    */
   async sessionUser() {
     return step('Ask the server who is signed in', async () => {
-      const res = await this.ctx.get('/api/method/frappe.auth.get_logged_user')
-      if (res.status() === 401 || res.status() === 403) return null
-      const body = await this._body(res)
-      if (!res.ok()) throw new Error(`get_logged_user: HTTP ${res.status()} ${shortError(body)}`)
+      const response = await this.requestContext.get('/api/method/frappe.auth.get_logged_user')
+      if (response.status() === 401 || response.status() === 403) return null
+      const body = await this._body(response)
+      if (!response.ok()) throw new Error(`get_logged_user: HTTP ${response.status()} ${shortError(body)}`)
       return body.message
     })
   }
@@ -126,14 +126,14 @@ class FrappeClient {
   /** The HTTP status the server answers "who is signed in?" with: 200 signed in, 401 session ended. */
   async sessionStatus() {
     return step('Ask the server whether this session is still signed in', async () =>
-      (await this.ctx.get('/api/method/frappe.auth.get_logged_user')).status())
+      (await this.requestContext.get('/api/method/frappe.auth.get_logged_user')).status())
   }
 
   /** Call a whitelisted server method: POST /api/method/<path>. Returns `message`. */
   async call(method, args = {}, { timeout } = {}) {
-    const res = await this.ctx.post(`/api/method/${method}`, { form: args, ...(timeout ? { timeout } : {}) })
-    const body = await this._body(res)
-    if (!res.ok()) throw new Error(`${method}: HTTP ${res.status()} ${shortError(body)}`)
+    const response = await this.requestContext.post(`/api/method/${method}`, { form: args, ...(timeout ? { timeout } : {}) })
+    const body = await this._body(response)
+    if (!response.ok()) throw new Error(`${method}: HTTP ${response.status()} ${shortError(body)}`)
     return body.message
   }
 
@@ -142,8 +142,8 @@ class FrappeClient {
    * the HTTP Date header: correct even when this machine runs in another time zone (e.g. CI in UTC).
    */
   async serverNow(timeZone) {
-    const res = await this.ctx.get('/api/method/ping')
-    const serverTime = new Date(res.headers()['date'])
+    const response = await this.requestContext.get('/api/method/ping')
+    const serverTime = new Date(response.headers()['date'])
     const parts = Object.fromEntries(
       new Intl.DateTimeFormat('en-GB', {
         timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
@@ -153,14 +153,14 @@ class FrappeClient {
     return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
   }
 
-  async _json(res) {
-    const body = await this._body(res)
-    if (!res.ok()) throw new Error(`${res.url()}: HTTP ${res.status()} ${shortError(body)}`)
+  async _json(response) {
+    const body = await this._body(response)
+    if (!response.ok()) throw new Error(`${response.url()}: HTTP ${response.status()} ${shortError(body)}`)
     return body.data
   }
 
-  async _body(res) {
-    const text = await res.text()
+  async _body(response) {
+    const text = await response.text()
     try {
       return JSON.parse(text)
     } catch {

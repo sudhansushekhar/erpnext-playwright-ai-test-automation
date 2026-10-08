@@ -35,7 +35,7 @@ const { test } = require('./pos')
 // Report helpers (reporting-labs):
 //   meta({...})        priority, severity, owner, feature, story (= requirement ID) from the test case
 //   log('...')         a timestamped line in the report
-//   reportData(obj)    the data a test used, as a table in the report (reporting-labs calls it
+//   reportData(rows)   the data a test used, as a table in the report (reporting-labs calls it
 //                      testData; renamed so it does not clash with the testData fixture)
 const { meta, log, testData: reportData } = require('reporting-labs')
 

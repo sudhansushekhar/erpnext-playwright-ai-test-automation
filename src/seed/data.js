@@ -6,11 +6,11 @@
  * INCLUDE GST (as an MRP does). ⚠ GST rates here are illustrative demo values: check the
  * current GST rate of a real product before using any of them for real.
  */
-const ABBR = 'QAR' // ERPNext adds the company abbreviation to account, warehouse and template names
+const COMPANY_ABBREVIATION = 'QAR' // ERPNext adds the company abbreviation to account, warehouse and template names
 
 // GST slabs used here. Each slab is an Item Tax Template that sets CGST and SGST to half the rate.
 const GST_SLABS = [0, 5, 18]
-const gstTemplate = (rate) => `GST ${rate}% - ${ABBR}`
+const gstTemplate = (rate) => `GST ${rate}% - ${COMPANY_ABBREVIATION}`
 
 // A stock item at 18% GST included: 118.00 = 100.00 + CGST 9.00 + SGST 9.00. One per billing counter (below).
 const stockItem = (number) => ({
@@ -34,14 +34,14 @@ const BILLING_COUNTERS = [
 
 const TEST_DATA = {
   company: 'QA Retail',
-  companyAbbr: ABBR,
+  companyAbbreviation: COMPANY_ABBREVIATION,
   currency: 'INR',
   currencySymbol: '₹',
   country: 'India',
   timezone: 'Asia/Kolkata',
   // Financial year April to March (set by the setup wizard from these months).
   fiscalYearStartMonth: 4,
-  warehouse: `Stores - ${ABBR}`,
+  warehouse: `Stores - ${COMPANY_ABBREVIATION}`,
   sellingPriceList: 'Standard Selling',
   buyingPriceList: 'Standard Buying',
   territory: 'India',
@@ -64,39 +64,39 @@ const TEST_DATA = {
 
   // ── GST ───────────────────────────────────────────────────────────────────────────────
   gst: {
-    cgstAccount: `Output Tax CGST - ${ABBR}`,
-    sgstAccount: `Output Tax SGST - ${ABBR}`,
+    cgstAccount: `Output Tax CGST - ${COMPANY_ABBREVIATION}`,
+    sgstAccount: `Output Tax SGST - ${COMPANY_ABBREVIATION}`,
     // The sales template: CGST and SGST lines at 0%, included in the price. Each item's GST
     // slab (an Item Tax Template) sets the real rates. The DEFAULT template: every new sale
     // on the screens gets GST, like a real Indian shop.
-    template: `GST In-State - ${ABBR}`,
+    template: `GST In-State - ${COMPANY_ABBREVIATION}`,
     slabs: Object.fromEntries(GST_SLABS.map((rate) => [rate, gstTemplate(rate)])),
   },
 
   // Surcharges: only when a test or a cashier picks their template.
   surcharges: {
     // On the whole sale: a fixed amount, whatever is in the basket.
-    sale: { label: 'Home Delivery Charge', amount: 40, account: `Home Delivery Charge - ${ABBR}`, template: `Home Delivery Charge - ${ABBR}` },
+    sale: { label: 'Home Delivery Charge', amount: 40, account: `Home Delivery Charge - ${COMPANY_ABBREVIATION}`, template: `Home Delivery Charge - ${COMPANY_ABBREVIATION}` },
     // On one item: a % of that item's lines only (QA-ECO-001).
     item: {
-      label: 'QA Eco Fee', rate: 5, account: `QA Eco Fee - ${ABBR}`,
-      itemTaxTemplate: `QA Eco Fee 5% - ${ABBR}`, template: `QA Item Surcharge - ${ABBR}`,
+      label: 'QA Eco Fee', rate: 5, account: `QA Eco Fee - ${COMPANY_ABBREVIATION}`,
+      itemTaxTemplate: `QA Eco Fee 5% - ${COMPANY_ABBREVIATION}`, template: `QA Item Surcharge - ${COMPANY_ABBREVIATION}`,
     },
   },
 
   // ── Payments and the point of sale ─────────────────────────────────────────────────────
-  bankAccount: `QA Bank - ${ABBR}`,
+  bankAccount: `QA Bank - ${COMPANY_ABBREVIATION}`,
   paymentModes: [
-    { mode: 'Cash', type: 'Cash', account: `Cash - ${ABBR}`, default: true },
-    { mode: 'UPI', type: 'Bank', account: `QA Bank - ${ABBR}`, default: false },
-    { mode: 'Debit Card', type: 'Bank', account: `QA Bank - ${ABBR}`, default: false },
-    { mode: 'Credit Card', type: 'Bank', account: `QA Bank - ${ABBR}`, default: false },
+    { mode: 'Cash', type: 'Cash', account: `Cash - ${COMPANY_ABBREVIATION}`, default: true },
+    { mode: 'UPI', type: 'Bank', account: `QA Bank - ${COMPANY_ABBREVIATION}`, default: false },
+    { mode: 'Debit Card', type: 'Bank', account: `QA Bank - ${COMPANY_ABBREVIATION}`, default: false },
+    { mode: 'Credit Card', type: 'Bank', account: `QA Bank - ${COMPANY_ABBREVIATION}`, default: false },
   ],
-  costCenter: `Main - ${ABBR}`,
+  costCenter: `Main - ${COMPANY_ABBREVIATION}`,
   posProfile: {
     name: 'QA POS',
     customer: 'Walk-in Customer', // the POS starts every sale with this customer
-    writeOffAccount: `Write Off - ${ABBR}`,
+    writeOffAccount: `Write Off - ${COMPANY_ABBREVIATION}`,
     writeOffLimit: 1, // amounts up to ₹1.00 can be written off at payment
     openingCash: 1000, // the cash a test's shift opens with (the shift fixture)
   },
@@ -184,4 +184,4 @@ const TEST_DATA = {
   landingWorkspace: 'QA Testing',
 }
 
-module.exports = { TEST_DATA, ABBR }
+module.exports = { TEST_DATA, COMPANY_ABBREVIATION }

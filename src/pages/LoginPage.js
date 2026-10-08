@@ -30,8 +30,8 @@ class LoginPage {
    */
   async signInThroughApi(user, password) {
     await step(`Sign in as ${user} (through the API)`, async () => {
-      const res = await this.page.request.post('/api/method/login', { form: { usr: user, pwd: password } })
-      if (!res.ok()) throw new Error(`Sign-in as ${user} failed: HTTP ${res.status()}`)
+      const response = await this.page.request.post('/api/method/login', { form: { usr: user, pwd: password } })
+      if (!response.ok()) throw new Error(`Sign-in as ${user} failed: HTTP ${response.status()}`)
     })
   }
 

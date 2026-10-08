@@ -12,7 +12,7 @@ const fs = require('fs')
 const path = require('path')
 const { FrappeClient } = require('../api/FrappeClient')
 const { ENV } = require('../../config/env')
-const { TEST_DATA, ABBR } = require('./data')
+const { TEST_DATA, COMPANY_ABBREVIATION } = require('./data')
 
 const testData = TEST_DATA
 
@@ -81,7 +81,7 @@ async function ensureSetupComplete(api, log) {
         timezone: testData.timezone,
         currency: testData.currency,
         company_name: testData.company,
-        company_abbr: testData.companyAbbr,
+        company_abbr: testData.companyAbbreviation,
         chart_of_accounts: 'Standard',
         fy_start_date: `${startYear}-${month}-01`,
         fy_end_date: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`,
@@ -104,8 +104,8 @@ async function ensureSetupComplete(api, log) {
  */
 async function ensureGst(api, log) {
   const gst = testData.gst
-  await ensureAccount(api, log, { account: gst.cgstAccount, label: 'Output Tax CGST', parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
-  await ensureAccount(api, log, { account: gst.sgstAccount, label: 'Output Tax SGST', parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
+  await ensureAccount(api, log, { account: gst.cgstAccount, label: 'Output Tax CGST', parent: `Duties and Taxes - ${COMPANY_ABBREVIATION}`, type: 'Tax', rate: 0 })
+  await ensureAccount(api, log, { account: gst.sgstAccount, label: 'Output Tax SGST', parent: `Duties and Taxes - ${COMPANY_ABBREVIATION}`, type: 'Tax', rate: 0 })
 
   for (const [rate, name] of Object.entries(gst.slabs)) {
     const half = Number(rate) / 2
@@ -134,7 +134,7 @@ async function ensureGst(api, log) {
 /** Sale surcharge: a fixed amount on the whole sale, booked as income. */
 async function ensureSaleSurcharge(api, log) {
   const { label, amount, account, template } = testData.surcharges.sale
-  await ensureAccount(api, log, { account, label, parent: `Indirect Income - ${ABBR}`, type: 'Chargeable' })
+  await ensureAccount(api, log, { account, label, parent: `Indirect Income - ${COMPANY_ABBREVIATION}`, type: 'Chargeable' })
   await ensureSalesTemplate(api, log, template, label, [
     { charge_type: 'Actual', account_head: account, description: label, tax_amount: amount },
   ])
@@ -146,7 +146,7 @@ async function ensureSaleSurcharge(api, log) {
  */
 async function ensureItemSurcharge(api, log) {
   const { label, rate, account, itemTaxTemplate, template } = testData.surcharges.item
-  await ensureAccount(api, log, { account, label, parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
+  await ensureAccount(api, log, { account, label, parent: `Duties and Taxes - ${COMPANY_ABBREVIATION}`, type: 'Tax', rate: 0 })
   await ensureItemTaxTemplate(api, log, itemTaxTemplate, `${label} ${rate}%`, [{ tax_type: account, tax_rate: rate }])
   await ensureSalesTemplate(api, log, template, 'QA Item Surcharge', [
     { charge_type: 'On Net Total', account_head: account, description: label, rate: 0 },
@@ -284,7 +284,7 @@ async function ensureStock(api, log, item) {
  * The setup wizard makes Cash (linked to Cash - QAR) and Credit Card; UPI and Debit Card are new.
  */
 async function ensurePaymentModes(api, log) {
-  await ensureAccount(api, log, { account: testData.bankAccount, label: 'QA Bank', parent: `Bank Accounts - ${ABBR}`, type: 'Bank' })
+  await ensureAccount(api, log, { account: testData.bankAccount, label: 'QA Bank', parent: `Bank Accounts - ${COMPANY_ABBREVIATION}`, type: 'Bank' })
   for (const { mode, type, account } of testData.paymentModes) {
     const doc = await api.findDoc('Mode of Payment', mode)
     if (!doc) {

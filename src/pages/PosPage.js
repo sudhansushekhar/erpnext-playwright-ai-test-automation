@@ -197,9 +197,9 @@ class PosPage {
     })
   }
 
-  async setUpiReference(utr) {
+  async setUpiReference(upiReference) {
     await step('Enter the UPI transaction ID', async () => {
-      await this.field('UPI Transaction ID').fill(utr)
+      await this.field('UPI Transaction ID').fill(upiReference)
       await this.page.keyboard.press('Tab')
     })
   }
@@ -215,12 +215,12 @@ class PosPage {
       )
       await this.completeOrderButton.click()
       await this.page.getByRole('button', { name: 'Yes' }).describe('Yes (Permanently Submit?)').click()
-      const res = await submit
-      const doc = JSON.parse(new URLSearchParams(res.request().postData()).get('doc'))
-      await note(res.ok()
+      const response = await submit
+      const doc = JSON.parse(new URLSearchParams(response.request().postData()).get('doc'))
+      await note(response.ok()
         ? `Sales Invoice ${doc.name} submitted`
-        : `Sales Invoice ${doc.name} refused by the server (HTTP ${res.status()})`)
-      return { name: doc.name, accepted: res.ok() }
+        : `Sales Invoice ${doc.name} refused by the server (HTTP ${response.status()})`)
+      return { name: doc.name, accepted: response.ok() }
     })
   }
 
