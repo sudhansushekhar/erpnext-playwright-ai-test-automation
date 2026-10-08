@@ -12,6 +12,8 @@
  * invoices (get_invoices), start each payment mode at its opening amount, add what each mode
  * took, count the closing amount as expected (no difference), then save and submit.
  */
+const { step } = require('../report')
+
 class Shifts {
   /**
    * @param {import('./FrappeClient').FrappeClient} api  signed in as a user who may open a shift at any counter
@@ -26,6 +28,10 @@ class Shifts {
 
   /** Open a shift for `user` at billing counter `counter` (its POS Profile), with the opening cash. Returns its name. */
   async open({ counter, user, openingCash = this.openingCash }) {
+    return step(`Open a shift for ${user} at ${counter}`, () => this.#open({ counter, user, openingCash }))
+  }
+
+  async #open({ counter, user, openingCash }) {
     const now = await this.api.serverNow(this.timeZone)
     const entry = await this.api.insert('POS Opening Entry', {
       company: this.company,
@@ -41,6 +47,10 @@ class Shifts {
 
   /** Close an open session as its cashier would: counted cash = expected. Returns the closing entry's name. */
   async close(openingName) {
+    return step(`Close shift ${openingName}`, () => this.#close(openingName))
+  }
+
+  async #close(openingName) {
     const opening = await this.api.getDoc('POS Opening Entry', openingName)
     const end = await this.api.serverNow(this.timeZone)
     const data = await this.api.call('erpnext.accounts.doctype.pos_closing_entry.pos_closing_entry.get_invoices', {
@@ -94,23 +104,28 @@ class Shifts {
 
   /** The names of `user`'s open sessions. */
   async openOf(user) {
-    const open = await this.api.getList('POS Opening Entry', {
-      filters: [['user', '=', user], ['status', '=', 'Open'], ['docstatus', '=', 1]],
-      limit: 20,
+    return step(`Read the open shifts of ${user}`, async () => {
+      const open = await this.api.getList('POS Opening Entry', {
+        filters: [['user', '=', user], ['status', '=', 'Open'], ['docstatus', '=', 1]],
+        limit: 20,
+      })
+      return open.map((o) => o.name)
     })
-    return open.map((o) => o.name)
   }
 
   /** Close every open session of `user` (left over by a crashed run). Returns how many were closed. */
   async closeAllOf(user) {
-    const open = await this.openOf(user)
-    for (const name of open) await this.close(name)
-    return open.length
+    return step(`Close any open shift of ${user}`, async () => {
+      const open = await this.openOf(user)
+      for (const name of open) await this.close(name)
+      return open.length
+    })
   }
 
   /** A session's status: "Open" or "Closed". */
   async status(openingName) {
-    return (await this.api.getDoc('POS Opening Entry', openingName)).status
+    return step(`Read the status of shift ${openingName}`, async () =>
+      (await this.api.getDoc('POS Opening Entry', openingName)).status)
   }
 }
 

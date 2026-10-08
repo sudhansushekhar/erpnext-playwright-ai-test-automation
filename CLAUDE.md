@@ -48,7 +48,11 @@ agent edits (`.claude/settings.json`): a violation is sent straight back to the 
 3. **Assert the record the server booked, by its name.** Take the name from the screen's own response
    or the URL, read it with `api.getDoc(doctype, name)`, check status, totals and links. Never assert
    "the latest" record or a count: the site keeps every run's data.
-4. **[lint] No locators in specs.** A new user action is a new method on a page object.
+4. **[lint] No locators in specs.** A new user action is a new method on a page object, wrapped in a
+   named step (`step('Pay ₹118 by Cash', ...)` from `src/report.js`); each locator gets a readable name
+   (`.describe('Checkout button')`), and a value a test relies on is noted (`note('Invoice … submitted')`).
+   **[lint]** Every check has a message, its title in the report: `expect(qty, 'Stock is exactly 1 lower')`.
+   The report then reads like the test case. Never put a password in a step title or a note.
 5. **Find elements the way a person does:** `getByRole` with a name, `getByLabel`, `getByText`,
    `getByPlaceholder`. CSS only where nothing else works, with a comment saying why.
 6. **[lint] Wait for the server, not the clock.** Wait for a response, a URL or a visible result.

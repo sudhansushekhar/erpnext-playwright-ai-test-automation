@@ -9,6 +9,7 @@
  *   const inv = await api.getDoc('Sales Invoice', name)
  */
 const { request } = require('@playwright/test')
+const { step, note } = require('../report')
 
 class FrappeClient {
   /** @param {import('@playwright/test').APIRequestContext} ctx */
@@ -37,7 +38,8 @@ class FrappeClient {
   }
 
   async getDoc(doctype, name) {
-    return this._json(await this.ctx.get(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`))
+    return step(`Read ${doctype} ${name} from the server`, async () =>
+      this._json(await this.ctx.get(`/api/resource/${encodeURIComponent(doctype)}/${encodeURIComponent(name)}`)))
   }
 
   /** The doc, or null when it does not exist. */
@@ -68,18 +70,26 @@ class FrappeClient {
 
   /** Stock of an item in a warehouse now (its Bin), 0 when it never had any. */
   async stockQty(itemCode, warehouse) {
-    const [bin] = await this.getList('Bin', {
-      filters: [['item_code', '=', itemCode], ['warehouse', '=', warehouse]],
-      fields: ['actual_qty'],
+    return step(`Read the stock of ${itemCode} in ${warehouse}`, async () => {
+      const [bin] = await this.getList('Bin', {
+        filters: [['item_code', '=', itemCode], ['warehouse', '=', warehouse]],
+        fields: ['actual_qty'],
+      })
+      const qty = bin ? bin.actual_qty : 0
+      await note(`Stock of ${itemCode} in ${warehouse}: ${qty}`)
+      return qty
     })
-    return bin ? bin.actual_qty : 0
   }
 
   /** The stock movements a document booked (its Stock Ledger Entries), e.g. a sales invoice's. */
   async stockMovements(voucherNo) {
-    return this.getList('Stock Ledger Entry', {
-      filters: [['voucher_no', '=', voucherNo], ['is_cancelled', '=', 0]],
-      fields: ['item_code', 'warehouse', 'actual_qty'],
+    return step(`Read the stock movements of ${voucherNo}`, async () => {
+      const moves = await this.getList('Stock Ledger Entry', {
+        filters: [['voucher_no', '=', voucherNo], ['is_cancelled', '=', 0]],
+        fields: ['item_code', 'warehouse', 'actual_qty'],
+      })
+      await note(`Stock moved by ${voucherNo}: ${moves.map((m) => `${m.actual_qty} × ${m.item_code} (${m.warehouse})`).join(', ') || 'nothing'}`)
+      return moves
     })
   }
 
@@ -104,16 +114,19 @@ class FrappeClient {
    * no session (a Guest gets 403 from this endpoint in ERPNext v16).
    */
   async sessionUser() {
-    const res = await this.ctx.get('/api/method/frappe.auth.get_logged_user')
-    if (res.status() === 401 || res.status() === 403) return null
-    const body = await this._body(res)
-    if (!res.ok()) throw new Error(`get_logged_user: HTTP ${res.status()} ${shortError(body)}`)
-    return body.message
+    return step('Ask the server who is signed in', async () => {
+      const res = await this.ctx.get('/api/method/frappe.auth.get_logged_user')
+      if (res.status() === 401 || res.status() === 403) return null
+      const body = await this._body(res)
+      if (!res.ok()) throw new Error(`get_logged_user: HTTP ${res.status()} ${shortError(body)}`)
+      return body.message
+    })
   }
 
   /** The HTTP status the server answers "who is signed in?" with: 200 signed in, 401 session ended. */
   async sessionStatus() {
-    return (await this.ctx.get('/api/method/frappe.auth.get_logged_user')).status()
+    return step('Ask the server whether this session is still signed in', async () =>
+      (await this.ctx.get('/api/method/frappe.auth.get_logged_user')).status())
   }
 
   /** Call a whitelisted server method: POST /api/method/<path>. Returns `message`. */
