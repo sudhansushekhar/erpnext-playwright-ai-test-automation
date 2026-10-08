@@ -34,11 +34,11 @@ async function seed({ log = console.log } = {}) {
 
     // Items, prices, stock.
     for (const g of d.demo.itemGroups) await ensureItemGroup(api, log, g)
-    await ensureItem(api, log, d.items.stock, { isStock: true })
+    for (const counter of d.billingCounters) await ensureItem(api, log, counter.item, { isStock: true }) // one per billing counter
     await ensureItem(api, log, d.items.service, { isStock: false })
     await ensureItem(api, log, d.items.eco, { isStock: false, itemTaxTemplate: d.surcharges.item.itemTaxTemplate })
     for (const item of d.demo.items) await ensureItem(api, log, { uom: 'Nos', ...item }, { isStock: true })
-    for (const item of [d.items.stock, ...d.demo.items]) await ensureStock(api, log, item)
+    for (const item of [...d.billingCounters.map((c) => c.item), ...d.demo.items]) await ensureStock(api, log, item)
 
     // Point of sale, people, page.
     await ensurePaymentModes(api, log)
@@ -379,16 +379,16 @@ async function ensureUser(api, log, user) {
 }
 
 /**
- * The POS Profiles: "QA POS" and one per till. ERPNext allows ONE open session per profile, so
- * each cashier gets a till of their own. Managers and admins may use every profile; QA POS is
- * their default, a cashier's till is the cashier's default.
+ * The POS Profiles: "QA POS" and one per billing counter. ERPNext allows ONE open session per
+ * profile, so each cashier gets a counter of their own. Managers and admins may use every profile; QA POS is
+ * their default, a cashier's counter is the cashier's default.
  */
 async function ensurePosProfile(api, log) {
   const p = d.posProfile
   const supervisors = d.users.filter((u) => u.role !== 'Cashier').map((u) => u.email)
   const profiles = [
     { name: p.name, users: [ENV.adminUser, ...supervisors], defaultFor: [ENV.adminUser, ...supervisors] },
-    ...d.tills.map((t) => ({ name: t.name, users: [...t.users, ...supervisors], defaultFor: t.users })),
+    ...d.billingCounters.map((c) => ({ name: c.name, users: [c.cashier.email, ...supervisors], defaultFor: [c.cashier.email] })),
   ]
   for (const { name, users, defaultFor } of profiles) {
     const profile = {

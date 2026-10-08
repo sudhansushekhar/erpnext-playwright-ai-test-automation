@@ -12,6 +12,26 @@ const ABBR = 'QAR' // ERPNext adds the company abbreviation to account, warehous
 const GST_SLABS = [0, 5, 18]
 const gstTemplate = (rate) => `GST ${rate}% - ${ABBR}`
 
+// A stock item at 18% GST included: 118.00 = 100.00 + CGST 9.00 + SGST 9.00. One per billing counter (below).
+const stockItem = (n) => ({
+  code: `QA-STOCK-00${n}`, name: n === 1 ? 'QA Stock Item' : `QA Stock Item ${n}`, group: 'Products', uom: 'Nos',
+  buyingPrice: 60, sellingPrice: 118, gst: 18,
+  stockQty: 50, // the seed tops stock back up to this before every run
+})
+
+// Billing counters, as in an Indian supermarket: one per parallel test worker, each with its own
+// cashier, POS Profile and stock item, so tests running at the same time never share them. A cashier
+// may be signed in once, a counter may have one open shift (POS session), and a test counts its item's
+// stock: shared, they would collide. Worker 1 uses Billing Counter 1 (Anjali, QA-STOCK-001), worker 2
+// Billing Counter 2, and so on. More workers than counters is refused (src/fixtures/base.js); add a
+// counter here to run more in parallel (the seed creates its cashier, POS Profile and item).
+const BILLING_COUNTERS = [
+  { name: 'Billing Counter 1', cashier: { email: 'anjali.verma@qa-retail.test', first: 'Anjali', last: 'Verma' }, item: stockItem(1) },
+  { name: 'Billing Counter 2', cashier: { email: 'rohit.kumar@qa-retail.test', first: 'Rohit', last: 'Kumar' }, item: stockItem(2) },
+  { name: 'Billing Counter 3', cashier: { email: 'kavya.menon@qa-retail.test', first: 'Kavya', last: 'Menon' }, item: stockItem(3) },
+  { name: 'Billing Counter 4', cashier: { email: 'farhan.ali@qa-retail.test', first: 'Farhan', last: 'Ali' }, item: stockItem(4) },
+].map((counter, i) => ({ number: i + 1, ...counter }))
+
 const TEST_DATA = {
   company: 'QA Retail',
   companyAbbr: ABBR,
@@ -31,12 +51,8 @@ const TEST_DATA = {
   supplier: { name: 'QA Supplier', group: 'Local' },
 
   items: {
-    // Stock item, 18% GST included: 118.00 = 100.00 + CGST 9.00 + SGST 9.00.
-    stock: {
-      code: 'QA-STOCK-001', name: 'QA Stock Item', group: 'Products', uom: 'Nos',
-      buyingPrice: 60, sellingPrice: 118, gst: 18,
-      stockQty: 50, // the seed tops stock back up to this before every run
-    },
+    // Billing Counter 1's item (QA-STOCK-001), the one in the worked examples. Tests use their counter's item.
+    stock: BILLING_COUNTERS[0].item,
     // Service, 18% GST included: 59.00 = 50.00 + 4.50 + 4.50. No stock.
     service: { code: 'QA-ITEM-001', name: 'QA Service Item', group: 'Services', uom: 'Nos', sellingPrice: 59, gst: 18 },
     // No GST; carries its own 5% eco fee (the item surcharge). No stock.
@@ -79,29 +95,29 @@ const TEST_DATA = {
     customer: 'Walk-in Customer', // the POS starts every sale with this customer
     writeOffAccount: `Write Off - ${ABBR}`,
     writeOffLimit: 1, // amounts up to ₹1.00 can be written off at payment
-    openingCash: 1000, // the float a test's till opens with (the pos fixture)
+    openingCash: 1000, // the cash a test's shift opens with (the shift fixture)
   },
   // What a test types on the payment screen for a UPI or card payment (made-up values, not real).
   paymentDetails: {
     upiReference: '412345678901', // a 12-digit UTR
     card: { type: 'RuPay', last4: '4242', approval: 'a1b2c3', approvalSaved: 'A1B2C3' }, // saved in capitals
   },
-  // ERPNext allows ONE open session per POS profile, so a profile is a till: two cashiers on one
-  // profile could not both start work ("QA POS is open"). Each till is a copy of QA POS with its
-  // own users; QA POS itself is for Administrator, the manager, the admin and the tests.
-  tills: [
-    { name: 'Till 1', users: ['anjali.verma@qa-retail.test'] },
-    { name: 'Till 2', users: ['rohit.kumar@qa-retail.test'] },
-  ],
+  // ERPNext allows ONE open session per POS profile, so a profile is a billing counter: two cashiers
+  // on one profile could not both start work ("QA POS is open"). Each counter's POS Profile is a copy
+  // of QA POS for its cashier; QA POS itself is for Administrator, the manager and the admin.
+  billingCounters: BILLING_COUNTERS,
 
   // ── People ───────────────────────────────────────────────────────────────────────────
   // Demo users on the reserved .test domain (it can never be a real address). All share one
   // password: DEMO_USER_PASSWORD in .env. All may use the QA POS profile.
   users: [
-    { email: 'anjali.verma@qa-retail.test', first: 'Anjali', last: 'Verma', role: 'Cashier' },
-    { email: 'rohit.kumar@qa-retail.test', first: 'Rohit', last: 'Kumar', role: 'Cashier' },
+    ...BILLING_COUNTERS.map((c) => ({ ...c.cashier, role: 'Cashier' })), // one cashier per billing counter
     { email: 'meera.nair@qa-retail.test', first: 'Meera', last: 'Nair', role: 'Store Manager' },
     { email: 'vikram.singh@qa-retail.test', first: 'Vikram', last: 'Singh', role: 'Admin' },
+    // Not a person: the tests' own API user (the `api` fixture), with the Admin roles. Tests do not
+    // use Administrator for API work, so a browser test can sign Administrator in without another
+    // Administrator sign-in from a parallel worker breaking its page (CLAUDE.md rule 12).
+    { email: 'qa.automation@qa-retail.test', first: 'QA', last: 'Automation', role: 'Admin', automation: true },
   ],
   // What each demo role is, in ERPNext roles.
   roles: {
@@ -126,6 +142,8 @@ const TEST_DATA = {
   // `Simultaneous Sessions` sessions: signing in again ends the oldest. Cashiers: 1. Everyone
   // else keeps more, because the tests sign Administrator in several times (seed, api fixture).
   sessions: { denyMultiple: true, cashier: 1, others: 10 },
+  // The user the tests' API session signs in as (see users above).
+  automationUser: 'qa.automation@qa-retail.test',
 
   // ── Demo data for trying things by hand ─────────────────────────────────────────────────
   // Generic product names, prices INCLUDE GST (MRP). Buying price is what the shop paid.

@@ -64,6 +64,9 @@ jobs:
       SUITE: ${{ (github.event_name == 'schedule' || inputs.suite == 'full') && 'full' || 'smoke' }}
       # Nightly: both browsers. By hand: the one chosen. Pull requests and pushes: Chromium.
       BROWSER: ${{ github.event_name == 'schedule' && 'both' || inputs.browser || 'chromium' }}
+      # Parallel test workers, one lane each (cashier, counter, stock item; docs/test-data.md "Lanes").
+      # The runner has 4 CPUs and also runs ERPNext, so 2 browsers at a time.
+      WORKERS: 2
     steps:
       - uses: actions/checkout@v5
 

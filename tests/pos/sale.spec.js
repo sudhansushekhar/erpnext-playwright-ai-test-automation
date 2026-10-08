@@ -1,18 +1,19 @@
 // Test case: docs/test-cases/pos-sale.md (TC-POS-001 to TC-POS-006)
-// Every sale runs as the cashier on her till: the `till` fixture opens it before the test and
-// closes it after (src/fixtures/pos.js).
+// Every sale runs at the worker's billing counter (src/fixtures/base.js), with its cashier and stock
+// item; the `shift` fixture opens her shift before the test and closes it after.
 const { test, expect, meta } = require('../../src/fixtures')
 const { rupees, gstSplit } = require('../../src/utils/money')
 const { paidRows, taxOn } = require('../../src/utils/invoice')
 
 test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a POS sales invoice', { tag: ['@smoke'] }, async ({
   pos,
-  till,
+  shift,
+  counter,
   api,
   testData,
 }) => {
   meta({ priority: 'P0', severity: 'blocker', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-004' })
-  const item = testData.items.stock
+  const item = counter.item
   const price = gstSplit(item)
   const stockBefore = await api.stockQty(item.code, testData.warehouse)
 
@@ -35,8 +36,8 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
     customer: testData.posProfile.customer,
     net_total: price.net,
     grand_total: price.gross,
-    owner: till.cashier,
-    pos_profile: till.name,
+    owner: shift.cashier,
+    pos_profile: shift.counter,
   })
   expect(taxOn(invoice, testData.gst.cgstAccount)).toBe(price.halfGst)
   expect(taxOn(invoice, testData.gst.sgstAccount)).toBe(price.halfGst)
@@ -51,11 +52,12 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
 
 test('TC-POS-002 a cashier sells by UPI: the transaction ID is saved with the sale', { tag: ['@smoke'] }, async ({
   pos,
+  counter,
   api,
   testData,
 }) => {
   meta({ priority: 'P0', severity: 'blocker', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-011' })
-  const item = testData.items.stock
+  const item = counter.item
   const utr = testData.paymentDetails.upiReference
 
   await pos.addItem(item)
@@ -82,11 +84,11 @@ test('TC-POS-002 a cashier sells by UPI: the transaction ID is saved with the sa
 
 test('TC-POS-003 a card payment without its last 4 digits is refused at Complete Order', { tag: ['@nightly'] }, async ({
   pos,
+  counter,
   api,
-  testData,
 }) => {
   meta({ priority: 'P1', severity: 'critical', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-012' })
-  const item = testData.items.stock
+  const item = counter.item
 
   await pos.addItem(item)
   await pos.checkout()
@@ -100,11 +102,12 @@ test('TC-POS-003 a card payment without its last 4 digits is refused at Complete
 
 test('TC-POS-004 a card sale keeps the card type, last 4 digits and approval code', { tag: ['@nightly'] }, async ({
   pos,
+  counter,
   api,
   testData,
 }) => {
   meta({ priority: 'P1', severity: 'critical', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-012' })
-  const item = testData.items.stock
+  const item = counter.item
   const card = testData.paymentDetails.card
 
   await pos.addItem(item)
@@ -125,9 +128,9 @@ test('TC-POS-004 a card sale keeps the card type, last 4 digits and approval cod
   expect(invoice.rpi_upi_reference || null).toBeNull()
 })
 
-test('TC-POS-005 the number pad takes whole rupees and paise', { tag: ['@nightly'] }, async ({ pos, testData }) => {
+test('TC-POS-005 the number pad takes whole rupees and paise', { tag: ['@nightly'] }, async ({ pos, counter }) => {
   meta({ priority: 'P2', severity: 'major', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-010' })
-  await pos.addItem(testData.items.stock)
+  await pos.addItem(counter.item)
   await pos.checkout()
   await pos.tapMode('Cash')
 
@@ -144,20 +147,20 @@ test('TC-POS-005 the number pad takes whole rupees and paise', { tag: ['@nightly
   // Nothing is submitted: the order is not completed.
 })
 
-test('TC-POS-006 opening the till asks only for the cash float', { tag: ['@nightly'] }, async ({
-  posWithoutTill,
-  tills,
+test('TC-POS-006 opening a shift asks only for the cash float', { tag: ['@nightly'] }, async ({
+  posBeforeOpening,
+  shifts,
   users,
 }) => {
   meta({ priority: 'P3', severity: 'minor', owner: 'sudhansushekhar', feature: 'POS', story: 'REQ-POS-003' })
-  const { email, till } = users.secondCashier
+  const { email, counter } = users.cashier
 
-  await posWithoutTill.chooseTill(till)
+  await posBeforeOpening.chooseCounter(counter)
 
-  await expect.poll(() => posWithoutTill.openingRows()).toEqual([`Cash ${rupees(0)}`])
-  await expect(posWithoutTill.openingRowCheckboxes).toHaveCount(0)
-  await expect(posWithoutTill.openingRowActions).toHaveCount(0)
+  await expect.poll(() => posBeforeOpening.openingRows()).toEqual([`Cash ${rupees(0)}`])
+  await expect(posBeforeOpening.openingRowCheckboxes).toHaveCount(0)
+  await expect(posBeforeOpening.openingRowActions).toHaveCount(0)
 
-  // Nothing was submitted: the second cashier still has no open till.
-  expect(await tills.openOf(email)).toEqual([])
+  // Nothing was submitted: the cashier still has no open shift.
+  expect(await shifts.openOf(email)).toEqual([])
 })

@@ -2,13 +2,17 @@
 
 Script: `tests/pos/sale.spec.js` · Area: POS · Owner: @sudhansushekhar · **Status: approved** (2026-10-07; drafted by the AI agent from `docs/requirements/pos-sale-prd.md`)
 
-Every test runs as cashier **Anjali Verma** on **Till 1**: a `pos` fixture opens her POS session
+**Billing counters (parallel runs):** the cashier, billing counter and stock item below are billing counter 1's (Anjali Verma, Billing Counter 1,
+QA-STOCK-001). When tests run in parallel, each worker uses its own billing counter's cashier, billing counter and stock
+item instead (same prices and GST); see "Billing counters" in `docs/test-data.md`.
+
+Every test runs as cashier **Anjali Verma** on **Billing Counter 1**: a `pos` fixture opens her POS session
 with ₹1,000.00 opening cash before the test and **always closes it afterwards**, even when the test
-failed, so the till is never left open for the next test. Amounts from `docs/test-data.md`.
+failed, so the billing counter is never left open for the next test. Amounts from `docs/test-data.md`.
 
 ## TC-POS-001 a cashier sells one item for cash: GST included, booked as a POS sales invoice
 **Requirement:** REQ-POS-004, REQ-POS-008, REQ-POS-009, REQ-POS-015 · **Priority:** P0 · **Severity:** blocker
-**Runs:** `@smoke` · **Test data:** QA-STOCK-001 (₹118.00, GST 18%, stock in Stores - QAR), Walk-in Customer, Till 1
+**Runs:** `@smoke` · **Test data:** QA-STOCK-001 (₹118.00, GST 18%, stock in Stores - QAR), Walk-in Customer, Billing Counter 1
 
 **Steps**
 1. Add 1 × QA-STOCK-001 to the cart.
@@ -18,7 +22,7 @@ failed, so the till is never left open for the next test. Amounts from `docs/tes
 - The cart shows Net Total ₹100.00, CGST ₹9.00, SGST ₹9.00, Grand Total ₹118.00.
 - The Sales Invoice the screen submitted, read back by name: `is_pos` 1, submitted, customer
   Walk-in Customer, net ₹100.00, CGST ₹9.00, SGST ₹9.00, grand total ₹118.00, one payment row
-  Cash ₹118.00, owner anjali.verma@qa-retail.test, POS profile Till 1.
+  Cash ₹118.00, owner anjali.verma@qa-retail.test, POS profile Billing Counter 1.
 - Stock of QA-STOCK-001 in Stores - QAR is exactly **1 lower** after the sale than before it, and
   the stock movement booked by that invoice (its Stock Ledger Entry, by the invoice's name) is
   **−1** of QA-STOCK-001 in Stores - QAR.
@@ -86,12 +90,12 @@ failed, so the till is never left open for the next test. Amounts from `docs/tes
 
 **Change it when** the number pad changes.
 
-## TC-POS-006 opening the till asks only for the cash float
+## TC-POS-006 opening a shift asks only for the cash float
 **Requirement:** REQ-POS-003 · **Priority:** P3 · **Severity:** minor
-**Runs:** `@nightly` · **Test data:** cashier Rohit Kumar, Till 2 (no open session)
+**Runs:** `@nightly` · **Test data:** the billing counter's cashier (Anjali Verma) and billing counter (Billing Counter 1), with no open session
 
 **Steps**
-1. Sign in as Rohit Kumar and open the Point of Sale. Choose POS Profile Till 2.
+1. Sign in as the cashier and open the Point of Sale. Choose her POS Profile (Billing Counter 1).
 
 **Checks**
 - The Opening Balance Details table has one row: Cash, opening amount ₹0.00.
@@ -128,40 +132,40 @@ failed, so the till is never left open for the next test. Amounts from `docs/tes
   discount ₹20.00, net ₹180.00, CGST ₹16.20, SGST ₹16.20, grand total ₹212.40,
   **rounded total ₹212.00**, one payment row Cash ₹212.00.
 
-**Change it when** the discount setting of the tills (Net Total) or rounding changes.
+**Change it when** the discount setting of the billing counters (Net Total) or rounding changes.
 
-## TC-POS-009 a second session on an open till is refused
+## TC-POS-009 a second shift at a billing counter that already has one is refused
 **Requirement:** REQ-POS-002 · **Priority:** P1 · **Severity:** critical · **Status: draft**
-**Runs:** `@nightly` · **Test data:** Till 1 open for Anjali (the `till` fixture); manager Meera Nair (may use every till)
+**Runs:** `@nightly` · **Test data:** Billing Counter 1 open for Anjali (the `shift` fixture); manager Meera Nair (may use every billing counter)
 
 **Steps**
 1. Sign in as Meera and open the Point of Sale. In **Create POS Opening Entry** choose POS Profile
-   **Till 1**, opening Cash ₹1,000.00. Submit.
+   **Billing Counter 1**, opening Cash ₹1,000.00. Submit.
 
 **Checks**
-- The screen shows "Till 1 is open. Close the POS or cancel the existing POS Opening Entry to
+- The screen shows "Billing Counter 1 is open. Close the POS or cancel the existing POS Opening Entry to
   create a new POS Opening Entry."
-- No second session: Meera has no open POS Opening Entry on Till 1, and Anjali's session is still Open.
+- No second session: Meera has no open POS Opening Entry on Billing Counter 1, and Anjali's session is still Open.
 
-**Change it when** ERPNext's session rule or the tills' users change.
+**Change it when** ERPNext's session rule or the billing counters' users change.
 
-## TC-POS-010 a cashier can neither pick nor read another cashier's till
+## TC-POS-010 a cashier can neither pick nor read another cashier's billing counter
 **Requirement:** REQ-POS-001 · **Priority:** P1 · **Severity:** critical · **Status: draft**
-**Runs:** `@nightly` · **Test data:** Rohit Kumar (Till 2, no open session); Anjali's open session on Till 1 (the `till` fixture)
+**Runs:** `@nightly` · **Test data:** Rohit Kumar (Billing Counter 2, no open session); Anjali's open session on Billing Counter 1 (the `shift` fixture)
 
 **Steps**
-1. Sign in as Rohit and open the Point of Sale. Type `Till` in the dialog's POS Profile box.
+1. Sign in as Rohit and open the Point of Sale. Type `Counter` in the dialog's POS Profile box.
 2. As Rohit, open Anjali's POS Opening Entry by its name (`/desk/pos-opening-entry/<name>`).
 
 **Checks**
-- The POS Profile list offers **Till 2** only, not Till 1.
+- The POS Profile list offers **Billing Counter 2** only, not Billing Counter 1.
 - Rohit cannot read Anjali's session: the server refuses it (HTTP 403), the screen shows no data of it.
 
-**Change it when** the Cashier role's permissions or the tills' users change.
+**Change it when** the Cashier role's permissions or the billing counters' users change.
 
-## TC-POS-011 a cashier closes their own till from the POS menu
+## TC-POS-011 a cashier closes their own billing counter from the POS menu
 **Requirement:** REQ-POS-016 · **Priority:** P1 · **Severity:** critical · **Status: draft**
-**Runs:** `@nightly` · **Test data:** QA-STOCK-001; Till 1 opened with ₹1,000.00
+**Runs:** `@nightly` · **Test data:** QA-STOCK-001; Billing Counter 1 opened with ₹1,000.00
 
 **Steps**
 1. Sell 1 × QA-STOCK-001 for ₹118.00 Cash (as TC-POS-001).
@@ -206,8 +210,8 @@ failed, so the till is never left open for the next test. Amounts from `docs/tes
 
 | Requirement | Test cases |
 |---|---|
-| REQ-POS-001 cashier opens own till | the `till` fixture (every test); TC-POS-010 (draft: not another's) |
-| REQ-POS-002 one open session per till | TC-POS-009 (draft) |
+| REQ-POS-001 cashier opens a shift at their own counter | the `shift` fixture (every test); TC-POS-010 (draft: not another's) |
+| REQ-POS-002 one open session per billing counter | TC-POS-009 (draft) |
 | REQ-POS-003 opening float cash only | TC-POS-006 |
 | REQ-POS-004 prices include GST | TC-POS-001 |
 | REQ-POS-005 GST by slab | TC-POS-001 (18%); TC-POS-013 (draft: 5%, 0%) |
@@ -221,29 +225,33 @@ failed, so the till is never left open for the next test. Amounts from `docs/tes
 | REQ-POS-013 UPI needs its ID | TC-POS-002; TC-POS-007 (draft: refused without it) |
 | REQ-POS-014 no full card numbers | TC-POS-012 (draft); also 15 unit tests in retail_pos_india, run by its CI on every pull request |
 | REQ-POS-015 booked as a Sales Invoice | TC-POS-001, TC-POS-002, TC-POS-004 |
-| REQ-POS-016 cashier closes own till | the `till` fixture (API, every test); TC-POS-011 (draft: on screen) |
+| REQ-POS-016 cashier closes their own shift | the `shift` fixture (API, every test); TC-POS-011 (draft: on screen) |
 | REQ-POS-017 to 019 sign-in, POS only, one device | `docs/test-cases/sign-in.md` (TC-SIGNIN-003 to 005) |
 
 ## Open questions
 
 1. ~~Should TC-POS-001 also check stock went down by 1?~~ **Decided (2026-10-07): yes**, added to TC-POS-001.
-2. Should the closing of the till (REQ-POS-016) be its own test case with checks on the closing
-   entry (totals per payment mode)? **For now:** opening the till is every test's prerequisite and
+2. Should the closing of the billing counter (REQ-POS-016) be its own test case with checks on the closing
+   entry (totals per payment mode)? **For now:** opening the shift is every test's prerequisite and
    closing it its last step, both done by the `pos` fixture through the API (it fails the test if the
-   till is still open afterwards); a closing-screen test case can be added.
-3. TC-POS-006 needs a cashier with **no** open session (Rohit, Till 2). **For now:** its fixture closes
-   any session Rohit left open first (as every POS fixture does for its cashier).
+   billing counter is still open afterwards); a closing-screen test case can be added.
+3. TC-POS-006 needs a cashier with **no** open session. **Decided (2026-10-08):** it uses its billing counter's
+   cashier, whose billing counter the other tests close after each test; its fixture also closes any session left
+   open first. (It used Rohit, Billing Counter 2, before billing counters made Rohit billing counter 2's cashier.)
 4. ~~Defect found by TC-POS-005 (2026-10-07)~~ **Fixed (2026-10-07) in retail_pos_india:** tapping the
    payment mode that was **already selected** (Cash, right after Checkout) switched it **off**
    (ERPNext's tile toggle), so the number pad typed nothing, against REQ-POS-010. The app now keeps a
    tapped tile selected and starts a new amount; TC-POS-005 passes on Chromium and WebKit.
 5. TC-POS-009: should the second session be tried **on the screen by Meera** (as drafted) or through
-   the API? And is the message exactly the PRD's, with "Till 1" in place of `<till>`?
+   the API? And is the message exactly the PRD's, with "Billing Counter 1" in place of `<billing counter>`?
 6. TC-POS-012 needs a full card number to type. Proposal: Visa's published test number
    4111 1111 1111 1111, added to `docs/test-data.md` on approval. OK?
 7. TC-POS-013: the tests use QA items, but there is no QA item at 5% or 0%. Use the demo items
    Wheat Atta 5 kg and Iodised Salt 1 kg (measured as #11 and #12), or add QA-GST5-001 / QA-GST0-001
    to the seed? Also, ₹285.00 + ₹28.00 = ₹313.00 together is computed, not yet measured.
-8. TC-POS-011 closes the till on screen, so its fixture must skip the API close (it still checks Closed).
-9. TC-POS-010: the refusal when Rohit opens Till 1 **through the API** is not in the PRD; only the
-   screen (Till 1 not offered) and reading (403) are drafted.
+8. TC-POS-011 closes the shift on screen, so its fixture must skip the API close (it still checks Closed).
+9. TC-POS-010: the refusal when Rohit opens Billing Counter 1 **through the API** is not in the PRD; only the
+   screen (Billing Counter 1 not offered) and reading (403) are drafted.
+10. Drafts TC-POS-009 and TC-POS-010 name a second cashier (Rohit) beside Anjali. With billing counters, "another
+    cashier" must not be another worker's billing counter cashier while that worker runs. Proposal: a cashier
+    kept outside the billing counters for these two test cases. To decide when they are approved.

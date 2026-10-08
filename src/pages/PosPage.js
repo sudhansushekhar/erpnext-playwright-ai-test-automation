@@ -37,9 +37,15 @@ class PosPage {
     await this.page.goto('/desk/point-of-sale')
   }
 
-  /** Wait until the item list is ready (the cashier's till is open). */
-  async ready() {
+  /**
+   * Wait until a new sale has started for `customer` (the POS Profile's default customer). The search box
+   * shows first, but ERPNext sets the sale up in steps (the invoice, the POS Profile's price list, then the
+   * cart with its customer); searching before the last step breaks the page (a TypeError in
+   * ERPNext's item search, seen under load with parallel workers). The customer in the cart is drawn last.
+   */
+  async ready(customer) {
     await this.search.waitFor()
+    await this.page.getByText(customer, { exact: true }).filter({ visible: true }).first().waitFor()
   }
 
   /** Add one unit of an item to the cart: search its code, tap its card. */
@@ -138,21 +144,21 @@ class PosPage {
     return { name: doc.name, accepted: res.ok() }
   }
 
-  // ── Opening the till (the dialog shown when the cashier's till is not open) ──────────────
+  // ── Opening a shift (the dialog shown when the cashier has no open shift) ──────────────
 
   /** CSS: the dialog's POS Profile box has no accessible name (its label is not linked to it). */
   get openingProfile() {
     return this.openingDialog.locator('[data-fieldname="pos_profile"] input')
   }
 
-  /** Choose the till (POS Profile). ERPNext fills it in already when the cashier has only one. */
-  async chooseTill(name) {
+  /** Choose the billing counter (its POS Profile). ERPNext fills it in already when the cashier has only one. */
+  async chooseCounter(name) {
     await this.openingProfile.waitFor()
     if ((await this.openingProfile.inputValue()) !== name) {
       await this.openingProfile.fill(name)
       await this.page.getByRole('option', { name }).first().click()
     }
-    // The payment rows load from the till's profile.
+    // The payment rows load from the counter's POS Profile.
     await this.openingDialog.getByText('Mode of Payment').waitFor()
   }
 

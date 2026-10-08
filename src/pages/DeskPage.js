@@ -15,7 +15,11 @@ class DeskPage {
 
   /** Open a desk page by its path, e.g. "/desk/item". */
   async open(path) {
-    await this.page.goto(path)
+    // Return as soon as the browser starts loading the page, not at its "load" event: the cashier
+    // guard's message shows for about 7 s from the redirect, and under parallel load WebKit took
+    // longer than that to finish loading, so a check after "load" missed it. Every check that
+    // follows waits for its own result (a URL, the message, a page title).
+    await this.page.goto(path, { waitUntil: 'commit' })
   }
 
   /** The path of a workspace page: "QA Testing" → "/desk/qa-testing". */

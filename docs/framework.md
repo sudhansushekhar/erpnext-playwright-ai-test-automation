@@ -30,9 +30,9 @@ erpnext-playwright-ai-test-automation/
 │
 ├── src/                           HOW the tests work (the framework code)
 │   ├── fixtures/                  what a test can ask for by name, in three layers
-│   │   ├── base.js                env, testData, users, api, session
+│   │   ├── base.js                env, testData, counter, users, api, session
 │   │   ├── pages.js               loginPage, deskPage, posPage, secondDevice
-│   │   ├── pos.js                 tills, till, pos, posWithoutTill
+│   │   ├── pos.js                 shifts, shift, pos, posBeforeOpening
 │   │   └── index.js               exports test, expect and the report helpers; table of fixtures
 │   ├── pages/                     page objects: every locator lives here
 │   │   ├── LoginPage.js           the sign-in screen
@@ -40,9 +40,9 @@ erpnext-playwright-ai-test-automation/
 │   │   └── PosPage.js             the Point of Sale
 │   ├── api/                       talking to ERPNext without a browser
 │   │   ├── FrappeClient.js        REST client: read records by name, insert, call methods
-│   │   └── tills.js               Tills: open and close a POS till (session)
+│   │   └── shifts.js               Shifts: open and close a POS shift (session)
 │   ├── seed/                      the test data
-│   │   ├── data.js                every value (company, GST, items, people, tills)
+│   │   ├── data.js                every value (company, GST, items, people, billing counters)
 │   │   ├── seed.js                builds it on the site, safely re-runnable
 │   │   ├── globalSetup.js         runs the seed before every test run
 │   │   ├── run.js                 `npm run seed`
@@ -78,7 +78,7 @@ erpnext-playwright-ai-test-automation/
 | A test | `tests/<feature>/<feature>.spec.js` |
 | A screen | `src/pages/<Screen>Page.js` + a fixture in `src/fixtures/pages.js` |
 | A user action on a screen | a method on that page object |
-| Setup a test needs (open a till, a draft order...) | a fixture, using `src/api/` |
+| Setup a test needs (open a shift, a draft order...) | a fixture, using `src/api/` |
 | A test value | `src/seed/data.js` and `docs/test-data.md` |
 | A calculation a check needs | `src/utils/` |
 
@@ -116,9 +116,9 @@ the app installed, and the seed builds the data there.
 flowchart TB
   TC["docs/test-cases: TC-POS-001 (plain English)"]
   SPEC["tests/pos/sale.spec.js: steps and checks"]
-  FIX["src/fixtures: pos, till, users, api, testData ..."]
+  FIX["src/fixtures: pos, shift, users, api, testData ..."]
   PAGES["src/pages: page objects (all locators)"]
-  API["src/api: FrappeClient, Tills"]
+  API["src/api: FrappeClient, Shifts"]
   UTILS["src/utils: money, invoice"]
   SEED["src/seed: data.js → seed.js → test-data.json"]
   PW["Playwright: browser + request"]
@@ -175,24 +175,24 @@ sequenceDiagram
   participant E as ERPNext
 
   R->>S: before any test
-  S->>E: company, GST, items, stock, users, tills (only what is missing)
+  S->>E: company, GST, items, stock, users, billing counters (only what is missing)
   S-->>R: .results/test-data.json
-  R->>F: the test asks for { pos, till, api, testData }
-  F->>E: api: sign in as Administrator (REST)
-  F->>E: till: close leftovers, open Till 1 for Anjali (POS Opening Entry)
+  R->>F: the test asks for { pos, shift, api, testData }
+  F->>E: api: sign in as the automation user (REST, once per worker)
+  F->>E: shift: close leftovers, open Billing Counter 1 for Anjali (POS Opening Entry)
   F->>P: pos: sign Anjali in, open the Point of Sale, wait until ready
   T->>P: addItem, checkout, payWith('Cash', '118'), completeOrder()
   P->>E: the screen submits the Sales Invoice
   P-->>T: the invoice's name, from the screen's own request
-  T->>E: api.getDoc(Sales Invoice, name) - GST, payment, owner, till, stock −1
-  F->>E: after the test (even a failure): close the till, check it is Closed
+  T->>E: api.getDoc(Sales Invoice, name) - GST, payment, owner, billing counter, stock −1
+  F->>E: after the test (even a failure): close the shift, check it is Closed
 ```
 
 The same test, as written (`tests/pos/sale.spec.js`, shortened):
 
 ```js
 test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a POS sales invoice', { tag: ['@smoke'] }, async ({
-  pos, till, api, testData,
+  pos, shift, api, testData,
 }) => {
   const item = testData.items.stock
   const price = gstSplit(item)                       // 118 → net 100, CGST 9, SGST 9
@@ -204,7 +204,7 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
   const sale = await pos.completeOrder()             // { name, accepted }
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)   // read back BY NAME
-  expect(invoice).toMatchObject({ is_pos: 1, docstatus: 1, grand_total: price.gross, owner: till.cashier })
+  expect(invoice).toMatchObject({ is_pos: 1, docstatus: 1, grand_total: price.gross, owner: shift.cashier })
   expect(await api.stockQty(item.code, testData.warehouse)).toBe(stockBefore - 1)
 })
 ```
@@ -218,6 +218,29 @@ Three ideas make the tests reliable:
 3. **Everything opened is closed.** Fixtures clean up after every test, passed or failed.
 
 ---
+
+### Running in parallel: billing counters
+
+A cashier may be signed in only once, and a billing counter may have only one open session. Two tests running
+at the same time with the same cashier would sign each other out and fight over the billing counter. So the
+test data is split into **billing counters**, like supermarket checkout billing counters: each worker owns one cashier, one
+billing counter and one stock item, and never touches another billing counter's.
+
+```mermaid
+flowchart LR
+  subgraph W1["Worker 1"]
+    T1["TC-POS-001, then TC-SIGNIN-003 ..."] --> L1["Lane 1: Anjali · Billing Counter 1 · QA-STOCK-001"]
+  end
+  subgraph W2["Worker 2"]
+    T2["TC-POS-002, then TC-POS-005 ..."] --> L2["Lane 2: Rohit · Billing Counter 2 · QA-STOCK-002"]
+  end
+  L1 --> ERP[("ERPNext")]
+  L2 --> ERP
+```
+
+The `counter` fixture (worker-scoped) picks the billing counter by the worker's number; `users.cashier`, `shift`
+and `counter.item` then all point at it. Inside one worker, tests run one after another, so its billing counter is
+always free when a test starts.
 
 ## 4. OOP in the framework
 
@@ -297,7 +320,7 @@ async payWith(mode, keys) {
 
 When ERPNext changed how a selected payment tile behaves, only `selectMode` changed; no test did.
 
-The same at the API level: `tills.open({ till, user })` and `tills.close(opening)` hide a POS Opening
+The same at the API level: `shifts.open({ counter, user })` and `shifts.close(opening)` hide a POS Opening
 Entry, a POS Closing Entry and the payment reconciliation ERPNext requires.
 
 ### Composition ("has a")
@@ -311,7 +334,7 @@ Objects are built from other objects instead of inheriting from them:
     await this.page.goto('/desk/point-of-sale')
   }
   ```
-- `Tills` **has a** `FrappeClient` (passed in the constructor) and uses it for every request.
+- `Shifts` **has a** `FrappeClient` (passed in the constructor) and uses it for every request.
 - The `secondDevice` fixture **has a** page, a `loginPage`, a `deskPage` and a `session`.
 
 ### Inheritance ("is a")
@@ -325,7 +348,7 @@ const test = base.test.extend({ env, testData, users, api, session })
 // src/fixtures/pages.js
 const test = base.extend({ loginPage, deskPage, posPage, secondDevice })
 // src/fixtures/pos.js
-const test = pages.extend({ tills, till, pos, posWithoutTill })
+const test = pages.extend({ shifts, shift, pos, posBeforeOpening })
 ```
 
 **Not** used for page objects: there is no `BasePage` class, on purpose. The three screens share
@@ -347,7 +370,7 @@ static fromContext(ctx) { return new FrappeClient(ctx) }                        
 
 ```js
 // src/fixtures/base.js and pages.js
-api:     await FrappeClient.signIn(ENV.baseUrl, ENV.adminUser, ENV.adminPassword)  // Administrator
+api:     await FrappeClient.signIn(env.baseUrl, testData.automationUser, env.demoUserPassword)  // the tests' API user
 session: FrappeClient.fromContext(page.request)                                    // this browser
 secondDevice.session: FrappeClient.fromContext(page.request)                       // another browser
 ```
@@ -371,13 +394,13 @@ A getter reads like a property but is computed when used:
 get openingRowCheckboxes() {
   return this.openingDialog.getByRole('checkbox').filter({ visible: true })
 }
-// the test: await expect(posWithoutTill.openingRowCheckboxes).toHaveCount(0)
+// the test: await expect(posBeforeOpening.openingRowCheckboxes).toHaveCount(0)
 ```
 
 ### Single responsibility
 
-Each class has one job: `LoginPage` signs in, `PosPage` sells, `FrappeClient` talks REST, `Tills`
-opens and closes tills, `seed.js` prepares data. A change has one place to go.
+Each class has one job: `LoginPage` signs in, `PosPage` sells, `FrappeClient` talks REST, `Shifts`
+opens and closes shifts, `seed.js` prepares data. A change has one place to go.
 
 ---
 
@@ -388,7 +411,7 @@ opens and closes tills, `seed.js` prepares data. A change has one place to go.
 | **Page Object Model** | `src/pages/` | Locators and screen actions in one class per screen; tests read like test cases |
 | **Fixtures = dependency injection** | `src/fixtures/` | A test names what it needs (`{ pos, api }`); Playwright builds it, hands it in and cleans it up. No set-up code in tests |
 | **Factory** | `FrappeClient.signIn` / `fromContext`, the fixtures | Objects are created in one place, ready to use |
-| **Facade** | `Tills` | One simple call (`open`, `close`) in front of several ERPNext documents and API calls |
+| **Facade** | `Shifts` | One simple call (`open`, `close`) in front of several ERPNext documents and API calls |
 | **Data builder (seed)** | `src/seed/` | Test data described once (`data.js`), built idempotently, shared by name |
 | **Arrange, Act, Assert** | every spec | Fixtures arrange, page-object calls act, `expect` on the saved record asserts |
 | **Layered architecture** | sections 1–2 | Each layer calls only the one below; changes stay local |
@@ -414,7 +437,7 @@ New screen: a new class in `src/pages/` and a fixture in `pages.js`. New feature
 | Need | How |
 |---|---|
 | More tests | Same pattern; fixtures and page objects are shared, specs stay short |
-| Faster runs | `WORKERS=n`. POS tests need **one till and cashier per worker** (a till has one open session, a cashier one device): add them to the seed and pick by `test.info().parallelIndex` |
+| Faster runs | **Billing counters**: each worker gets its own cashier, billing counter and stock item (`src/seed/data.js`), chosen by `workerInfo.parallelIndex` in the `counter` fixture, so tests running at the same time share nothing. `WORKERS=4 npm test` runs four at once; more billing counters, more workers. The `api` session signs in once per worker as a dedicated automation user, never Administrator, so parallel sign-ins never break a browser test about Administrator |
 | More browsers | Projects in `playwright.config.js` (Chromium and WebKit today) |
 | Quick vs full | `@smoke` on every pull request; every test nightly, published to the [dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/) with the trend across runs |
 | Another site | Change `BASE_URL`; the seed builds the data there |

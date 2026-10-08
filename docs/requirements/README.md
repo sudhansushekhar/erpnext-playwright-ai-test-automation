@@ -23,7 +23,7 @@ card's last 4 digits are entered. Message: "Enter the card's last 4 digits for t
 
 | File | Feature |
 |---|---|
-| [`pos-sale-prd.md`](pos-sale-prd.md) | Point of Sale: opening the till, selling, GST, payments (cash, UPI, card), closing |
+| [`pos-sale-prd.md`](pos-sale-prd.md) | Point of Sale: opening the shift, selling, GST, payments (cash, UPI, card), closing |
 
 ⚠ Use only documents you are allowed to: your own, or public ones. Never copy an employer's or a
 client's BRD/PRD into a personal repository.

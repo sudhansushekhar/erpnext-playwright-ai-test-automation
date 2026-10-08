@@ -1,19 +1,20 @@
 /**
- * Tills: open and close a POS till (a POS session) through the API, for test setup and teardown.
+ * Shifts: open and close a cashier's shift at a billing counter (a POS session: POS Opening Entry
+ * to POS Closing Entry) through the API, for test setup and teardown.
  * Tests about the POS screens should not spend their time on the opening dialog or the closing
  * form (CLAUDE.md rule 7); the tests that ARE about them use the screens.
  *
- *   const tills = new Tills(api, { company, timeZone, openingCash })
- *   const opening = await tills.open({ till: 'Till 1', user: 'anjali.verma@qa-retail.test' })
- *   await tills.close(opening)
+ *   const shifts = new Shifts(api, { company, timeZone, openingCash })
+ *   const opening = await shifts.open({ counter: 'Billing Counter 1', user: 'anjali.verma@qa-retail.test' })
+ *   await shifts.close(opening)
  *
  * Closing does what ERPNext's POS Closing Entry form does in the browser: fetch the session's
  * invoices (get_invoices), start each payment mode at its opening amount, add what each mode
  * took, count the closing amount as expected (no difference), then save and submit.
  */
-class Tills {
+class Shifts {
   /**
-   * @param {import('./FrappeClient').FrappeClient} api  signed in as a user who may open any till
+   * @param {import('./FrappeClient').FrappeClient} api  signed in as a user who may open a shift at any counter
    * @param {{ company: string, timeZone: string, openingCash: number }} options
    */
   constructor(api, { company, timeZone, openingCash }) {
@@ -23,12 +24,12 @@ class Tills {
     this.openingCash = openingCash
   }
 
-  /** Open a session on `till` for `user`, with the opening cash in the drawer. Returns its name. */
-  async open({ till, user, openingCash = this.openingCash }) {
+  /** Open a shift for `user` at billing counter `counter` (its POS Profile), with the opening cash. Returns its name. */
+  async open({ counter, user, openingCash = this.openingCash }) {
     const now = await this.api.serverNow(this.timeZone)
     const entry = await this.api.insert('POS Opening Entry', {
       company: this.company,
-      pos_profile: till,
+      pos_profile: counter,
       user,
       period_start_date: now,
       posting_date: now.slice(0, 10),
@@ -113,4 +114,4 @@ class Tills {
   }
 }
 
-module.exports = { Tills }
+module.exports = { Shifts }
