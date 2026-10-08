@@ -5,7 +5,7 @@
   "private": true,
   "type": "commonjs",
   "scripts": {
-    "lint": "eslint .",
+    "lint": "eslint . && node scripts/check-testdata.js",
     "seed": "node src/seed/run.js",
     "check": "node src/seed/check.js",
     "test": "playwright test",
@@ -23,6 +23,7 @@
     "eslint": "^10.12.0",
     "eslint-plugin-playwright": "^2.12.1",
     "globals": "^17.13.0",
-    "reporting-labs": "0.6.13"
+    "reporting-labs": "0.6.13",
+    "xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz"
   }
 }

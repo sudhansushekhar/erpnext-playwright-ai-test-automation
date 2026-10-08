@@ -24,9 +24,13 @@ erpnext-playwright-ai-test-automation/
 │   ├── ai-workflow.md             the daily loop with the AI agent
 │   └── ai-review-log.md           every AI mistake caught, and the rule it led to
 │
+├── testdata/                      data-driven test data: values only (testers edit these)
+│   └── sales/                     SaleTestData.xlsx (sheet "Sales"), SaleTestData.json
+│
 ├── tests/                         THE TESTS: steps and assertions only, one folder per feature
 │   ├── access/sign-in.spec.js     TC-SIGNIN-001..005
-│   └── pos/sale.spec.js           TC-POS-001..006
+│   ├── pos/sale.spec.js           TC-POS-001..006
+│   └── pos/sale-data.spec.js      TC-SALE-101..103, TC-RET-201..203: values from testdata/sales, steps written out
 │
 ├── src/                           HOW the tests work (the framework code)
 │   ├── fixtures/                  what a test can ask for by name, in three layers
@@ -40,16 +44,20 @@ erpnext-playwright-ai-test-automation/
 │   │   └── PosPage.js             the Point of Sale
 │   ├── api/                       talking to ERPNext without a browser
 │   │   ├── FrappeClient.js        REST client: read records by name, insert, call methods
-│   │   └── shifts.js               Shifts: open and close a POS shift (session)
+│   │   ├── shifts.js              Shifts: open and close a POS shift (session)
+│   │   └── sales.js               Sales: make a POS sale, or return one, through the API
 │   ├── seed/                      the test data
 │   │   ├── data.js                every value (company, GST, items, people, billing counters)
 │   │   ├── seed.js                builds it on the site, safely re-runnable
 │   │   ├── globalSetup.js         runs the seed before every test run
 │   │   ├── run.js                 `npm run seed`
 │   │   └── check.js               `npm run check`: is the site ready? (read-only)
-│   └── utils/                     pure helpers specs may import
+│   └── utils/                     helpers specs may import
 │       ├── money.js               rupees(118) → "₹ 118.00"; GST split of a price
-│       └── invoice.js             payment rows, tax lines of a saved invoice
+│       ├── invoice.js             payment rows, tax lines of a saved invoice
+│       ├── dataReader.js          readTestData({ file, sheet, testCaseId }): Excel and JSON, every column, any module
+│       ├── testDataReport.js      reportTestData(): the data a test used, and its file and row, in the report
+│       └── saleHelpers.js         itemOf, keptAndReturned, checkSavedInvoice (read back, no screen steps)
 │
 ├── config/env.js                  base URL and credentials from .env
 ├── playwright.config.js           browsers (projects), timeouts, reporters, retries 0
@@ -64,6 +72,7 @@ erpnext-playwright-ai-test-automation/
 │   └── settings.json              hook: lint every file the AI agent edits
 ├── scripts/
 │   ├── lint-edited-file.js        the hook's script
+│   ├── check-testdata.js          part of `npm run lint`: tests read data that exists; lists data with no test yet
 │   └── open-report.js             `npm run report`
 ├── CLAUDE.md / AGENTS.md          rules for AI agents (and people)
 └── .env.example                   the local Docker site's address and passwords (copy to .env)
@@ -81,6 +90,8 @@ erpnext-playwright-ai-test-automation/
 | Setup a test needs (open a shift, a draft order...) | a fixture, using `src/api/` |
 | A test value | `src/seed/data.js` and `docs/test-data.md` |
 | A calculation a check needs | `src/utils/` |
+| Values for a data-driven test | a row in `testdata/<module>/*.xlsx` or an entry in `*.json`; the test names it with `readTestData({ file, sheet, testCaseId })` |
+| A read-back check several data tests share | `src/utils/<module>Helpers.js` (no screen steps) |
 
 ---
 
@@ -447,6 +458,10 @@ opens and closes shifts, `seed.js` prepares data. A change has one place to go.
 4. The spec: title = the test case heading, steps, checks by record name, one tag.
 5. `npm run lint`, run it, break it once to see it fail (`/write-test` does all of this).
 
+**A data-driven test** (values in Excel or JSON): add the row(s) to `testdata/<module>/` (it can come before the
+test: `npm run lint` lists it), the test case to `docs/test-cases/`, then the test: `readTestData({ file, sheet,
+testCaseId })`, `reportTestData(...)`, and the steps as page object actions with the data's values.
+
 New screen: a new class in `src/pages/` and a fixture in `pages.js`. New feature area: a folder in
 `tests/`, a test case file in `docs/test-cases/`, and, if it needs setup, a fixture file like `pos.js`.
 
@@ -457,6 +472,7 @@ New screen: a new class in `src/pages/` and a fixture in `pages.js`. New feature
 | Need | How |
 |---|---|
 | More tests | Same pattern; fixtures and page objects are shared, specs stay short |
+| More test data | Rows in Excel or JSON (`testdata/`), read by one generic reader; no code per module |
 | Faster runs | **Billing counters**: each worker gets its own cashier, billing counter and stock item (`src/seed/data.js`), chosen by `workerInfo.parallelIndex` in the `counter` fixture, so tests running at the same time share nothing. `WORKERS=4 npm test` runs four at once; more billing counters, more workers. The `api` session signs in once per worker as a dedicated automation user, never Administrator, so parallel sign-ins never break a browser test about Administrator |
 | More browsers | Projects in `playwright.config.js` (Chromium and WebKit today) |
 | Quick vs full | `@smoke` on every pull request; every test nightly, published to the [dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/) with the trend across runs |

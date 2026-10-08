@@ -1,0 +1,175 @@
+{
+  "testCases": [
+    {
+      "testCaseId": "TC-SALE-102",
+      "title": "two of one item, paid by UPI",
+      "requirement": "REQ-POS-011",
+      "tag": "@nightly",
+      "transactions": [
+        {
+          "transactionType": "Sale",
+          "customerName": "Walk-in Customer",
+          "wareHouse": "Stores - QAR",
+          "totalTax": 36,
+          "subTotal": 200,
+          "grandTotal": 236,
+          "paymentType": "UPI",
+          "payAmount": 236,
+          "upiTransactionId": "412345678901",
+          "lines": [
+            {
+              "itemCode": "QA-DATA-001",
+              "itemName": "QA Data Item",
+              "price": 118,
+              "qty": 2,
+              "tax": 36,
+              "lineTotal": 236
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "testCaseId": "TC-SALE-103",
+      "title": "three of a service item, paid by debit card",
+      "requirement": "REQ-POS-012",
+      "tag": "@nightly",
+      "transactions": [
+        {
+          "transactionType": "Sale",
+          "customerName": "Walk-in Customer",
+          "totalTax": 27,
+          "subTotal": 150,
+          "grandTotal": 177,
+          "paymentType": "Debit Card",
+          "payAmount": 177,
+          "cardType": "RuPay",
+          "cardLast4": "4242",
+          "cardApprovalCode": "A1B2C3",
+          "lines": [
+            {
+              "itemCode": "QA-ITEM-001",
+              "itemName": "QA Service Item",
+              "price": 59,
+              "qty": 3,
+              "tax": 27,
+              "lineTotal": 177
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "testCaseId": "TC-RET-202",
+      "title": "every item of a sale is returned, refunded in cash",
+      "requirement": "REQ-POS-020",
+      "tag": "@nightly",
+      "transactions": [
+        {
+          "transactionType": "Sale",
+          "customerName": "Walk-in Customer",
+          "wareHouse": "Stores - QAR",
+          "totalTax": 27,
+          "subTotal": 150,
+          "grandTotal": 177,
+          "paymentType": "Cash",
+          "payAmount": 177,
+          "lines": [
+            {
+              "itemCode": "QA-DATA-001",
+              "itemName": "QA Data Item",
+              "price": 118,
+              "qty": 1,
+              "tax": 18,
+              "lineTotal": 118
+            },
+            {
+              "itemCode": "QA-ITEM-001",
+              "itemName": "QA Service Item",
+              "price": 59,
+              "qty": 1,
+              "tax": 9,
+              "lineTotal": 59
+            }
+          ]
+        },
+        {
+          "transactionType": "Sale Return",
+          "customerName": "Walk-in Customer",
+          "wareHouse": "Stores - QAR",
+          "totalTax": -27,
+          "subTotal": -150,
+          "grandTotal": -177,
+          "paymentType": "Cash",
+          "payAmount": -177,
+          "lines": [
+            {
+              "itemCode": "QA-DATA-001",
+              "itemName": "QA Data Item",
+              "price": 118,
+              "qty": -1,
+              "tax": -18,
+              "lineTotal": -118
+            },
+            {
+              "itemCode": "QA-ITEM-001",
+              "itemName": "QA Service Item",
+              "price": 59,
+              "qty": -1,
+              "tax": -9,
+              "lineTotal": -59
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "testCaseId": "TC-RET-203",
+      "title": "one of two units is returned, sale and return through the API",
+      "requirement": "REQ-POS-020",
+      "tag": "@nightly",
+      "transactions": [
+        {
+          "transactionType": "Sale",
+          "customerName": "Walk-in Customer",
+          "wareHouse": "Stores - QAR",
+          "totalTax": 36,
+          "subTotal": 200,
+          "grandTotal": 236,
+          "paymentType": "Cash",
+          "payAmount": 236,
+          "lines": [
+            {
+              "itemCode": "QA-DATA-001",
+              "itemName": "QA Data Item",
+              "price": 118,
+              "qty": 2,
+              "tax": 36,
+              "lineTotal": 236
+            }
+          ]
+        },
+        {
+          "transactionType": "Sale Return",
+          "customerName": "Walk-in Customer",
+          "wareHouse": "Stores - QAR",
+          "totalTax": -18,
+          "subTotal": -100,
+          "grandTotal": -118,
+          "paymentType": "Cash",
+          "payAmount": -118,
+          "lines": [
+            {
+              "itemCode": "QA-DATA-001",
+              "itemName": "QA Data Item",
+              "price": 118,
+              "qty": -1,
+              "tax": -18,
+              "lineTotal": -118
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

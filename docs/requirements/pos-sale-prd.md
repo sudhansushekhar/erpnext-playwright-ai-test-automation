@@ -86,6 +86,14 @@ Opening Entry, POS Closing Entry) and printing receipts stay allowed. Managers a
 A cashier can be signed in on one device only: signing in on a second device ends the session on
 the first.
 
+## 6. Returns
+
+### REQ-POS-020 · A cashier returns some or all items of a past sale
+From the Point of Sale (Recent Orders → the sale → Return), a cashier returns some or all items of a
+sale, each up to the quantity sold. The return is booked as a Sales Invoice return against that sale,
+with negative quantities and totals; the money is refunded in cash and the returned stock comes back.
+*(Added 2026-10-08 at the tester's request, for the data-driven return tests.)*
+
 ## Open questions
 
 - Should a cashier be able to give a sale discount without a manager? (Today: yes.)

@@ -60,16 +60,16 @@ class Shifts {
       user: opening.user,
     })
 
-    const reconciliation = opening.balance_details.map((b) => ({
-      mode_of_payment: b.mode_of_payment,
-      opening_amount: b.opening_amount,
-      expected_amount: b.opening_amount,
-      closing_amount: b.opening_amount,
+    const reconciliation = opening.balance_details.map((balance) => ({
+      mode_of_payment: balance.mode_of_payment,
+      opening_amount: balance.opening_amount,
+      expected_amount: balance.opening_amount,
+      closing_amount: balance.opening_amount,
     }))
-    for (const p of data.payments) {
-      let row = reconciliation.find((r) => r.mode_of_payment === p.mode_of_payment)
-      if (!row) reconciliation.push((row = { mode_of_payment: p.mode_of_payment, opening_amount: 0, expected_amount: 0, closing_amount: 0 }))
-      row.expected_amount += p.amount
+    for (const payment of data.payments) {
+      let row = reconciliation.find((existing) => existing.mode_of_payment === payment.mode_of_payment)
+      if (!row) reconciliation.push((row = { mode_of_payment: payment.mode_of_payment, opening_amount: 0, expected_amount: 0, closing_amount: 0 }))
+      row.expected_amount += payment.amount
       row.closing_amount = row.expected_amount
     }
     const sum = (key) => data.invoices.reduce((total, inv) => total + (inv[key] || 0), 0)
@@ -92,7 +92,7 @@ class Shifts {
         return_against: inv.return_against,
       })),
       payment_reconciliation: reconciliation,
-      taxes: data.taxes.map((t) => ({ account_head: t.account_head, amount: t.tax_amount })),
+      taxes: data.taxes.map((tax) => ({ account_head: tax.account_head, amount: tax.tax_amount })),
       grand_total: sum('grand_total'),
       net_total: sum('net_total'),
       total_quantity: sum('total_qty'),
@@ -109,7 +109,7 @@ class Shifts {
         filters: [['user', '=', user], ['status', '=', 'Open'], ['docstatus', '=', 1]],
         limit: 20,
       })
-      return open.map((o) => o.name)
+      return open.map((entry) => entry.name)
     })
   }
 

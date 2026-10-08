@@ -8,6 +8,7 @@
 const { expect } = require('@playwright/test')
 const { test: pages } = require('./pages')
 const { Shifts } = require('../api/shifts')
+const { Sales } = require('../api/sales')
 const { note } = require('../report')
 
 const test = pages.extend({
@@ -18,6 +19,11 @@ const test = pages.extend({
       timeZone: testData.timezone,
       openingCash: testData.posProfile.openingCash,
     }))
+  }, { scope: 'worker' }],
+
+  /** Make POS sales through the API, as prerequisites (a sale to return). */
+  sales: [async ({ api, testData }, use) => {
+    await use(new Sales(api, testData))
   }, { scope: 'worker' }],
 
   /**

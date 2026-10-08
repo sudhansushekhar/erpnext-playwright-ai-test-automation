@@ -54,6 +54,7 @@ Each item carries its slab, and the template's lines take the item's rate.
 | Item code | Name | GST | Buying | Selling (incl. GST) | Of which | Stock before every run |
 |---|---|---|---|---|---|---|
 | **QA-STOCK-001** | QA Stock Item | 18% | ₹60.00 | **₹118.00** | ₹100.00 + CGST ₹9.00 + SGST ₹9.00 | **50** |
+| **QA-DATA-001** | QA Data Item | 18% | ₹60.00 | **₹118.00** | the same; the **data-driven tests'** item ([test data files](#sales-and-returns-from-test-data-excel--json)) | **100** |
 | QA-STOCK-002 / 003 / 004 | QA Stock Item 2 / 3 / 4 | 18% | ₹60.00 | **₹118.00** | the same as QA-STOCK-001 (one per [billing counter](#billing counters-parallel-test-runs)) | **50** each |
 | **QA-ITEM-001** | QA Service Item | 18% | — | **₹59.00** | ₹50.00 + ₹4.50 + ₹4.50 | no stock |
 | **QA-ECO-001** | QA Eco Item | none | — | **₹40.00** | carries its own **5% eco fee** (the item surcharge) | no stock |
@@ -192,6 +193,110 @@ billing counters of a supermarket: each test worker gets one billing counter and
 `WORKERS=4 npm test` runs four billing counters at once; with more workers than billing counters the run stops with a
 message saying so. Tests read their billing counter through fixtures: `users.cashier`, `shift`, `counter.item`.
 To run more in parallel, add a billing counter in `src/seed/data.js` (the seed creates its cashier, billing counter and item).
+
+## Sales and returns from test data (Excel / JSON)
+
+Data-driven tests (`tests/pos/sale-data.spec.js`, test cases in `docs/test-cases/sale-data.md`) read
+their data from **`testdata/sales/`**: Excel (`SaleTestData.xlsx`) or JSON (`SaleTestData.json`). Each test
+names its file, sheet (Excel) and Test Case ID. A Test Case ID must be unique across all the files.
+
+**One generic reader, for every module** (`src/utils/dataReader.js`): there is no column list and no
+per-module file. **Every column is read**, under its header in camelCase: "Item Code" → `itemCode`, "Pay
+Amount" → `payAmount`, "UPI Transaction ID" → `upiTransactionId`, "Ware House" → `wareHouse`. A new column
+in Excel is in the data at once. The layout gives the shape:
+
+- **Test Case ID** starts a test case; the columns **before Transaction Type** (Title, Requirement, Tag) belong to it.
+- **Transaction Type** starts a transaction (Sale, Sale Return); it gets every column of its first row
+  (totals, payment, ware house: merged cells are fine, the value sits in the top cell).
+- **Every row** is a line of its transaction, with its own values (item, quantity, price...).
+
+The reader refuses, for every module, card numbers, card expiry dates, CVVs and passwords (PCI, secrets).
+
+**What the sales tests use** (each test uses the columns its own steps need; Item Name is the name the
+screen shows, which the test clicks):
+
+| Column (key) | Where | Meaning |
+|---|---|---|
+| Test Case ID, Title, Requirement, Tag | test case | TC-SALE-101 · "two different items, paid in cash" · REQ-POS-015 · @smoke or @nightly (default) |
+| Transaction Type | transaction | **Sale** or **Sale Return** (a return is against the Sale before it, in the same test case) |
+| Customer Name, Ware House | transaction | checked on the saved invoice (Walk-in Customer, Stores - QAR) |
+| Item Code, Item Name | line | any item in ERPNext, looked up by code (QA-DATA-001, QA-ITEM-001, DEMO-…); **not** a billing counter's QA-STOCK-00n, reserved for its own tests |
+| Price, Qty, Tax, Line Total | line | expected unit price (GST included), quantity (**negative on a return**), the GST in the line, the line's total |
+| Total Tax, Sub Total, Grand Total | transaction | expected totals: all GST, the total before GST, the total paid |
+| Payment Type, Pay Amount | transaction | Cash, UPI, Debit Card or Credit Card; a return is refunded in Cash (negative) |
+| Card Type, Card Last 4, Card Approval Code | transaction | for a card: the last 4 digits only, never the number |
+| UPI Transaction ID | transaction | for UPI: the 12-digit UTR |
+
+Not covered yet: Customer Code, line and sale discounts, item and sale surcharges, Voucher Number, Due
+Date. Each needs a test case and a test with its own steps (e.g. a "give a line discount" action on the
+POS page object); filling the column alone does nothing.
+
+**JSON:** the same shape, with the same keys (`testdata/sales/SaleTestData.json`):
+
+```json
+{ "testCases": [ {
+    "testCaseId": "TC-RET-202", "title": "every item of a sale is returned, refunded in cash",
+    "requirement": "REQ-POS-020", "tag": "@nightly",
+    "transactions": [
+      { "transactionType": "Sale", "customerName": "Walk-in Customer", "wareHouse": "Stores - QAR",
+        "totalTax": 18, "subTotal": 100, "grandTotal": 118, "paymentType": "Cash", "payAmount": 118,
+        "lines": [ { "itemCode": "QA-DATA-001", "itemName": "QA Data Item", "price": 118, "qty": 1, "tax": 18, "lineTotal": 118 } ] },
+      { "transactionType": "Sale Return", "totalTax": -18, "subTotal": -100, "grandTotal": -118,
+        "paymentType": "Cash", "payAmount": -118,
+        "lines": [ { "itemCode": "QA-DATA-001", "price": 118, "qty": -1, "tax": -18, "lineTotal": -118 } ] } ] } ] }
+```
+
+A card: `"paymentType": "Debit Card", "payAmount": 177, "cardType": "RuPay", "cardLast4": "4242", "cardApprovalCode": "A1B2C3"`;
+UPI: `"paymentType": "UPI", "payAmount": 236, "upiTransactionId": "412345678901"`.
+
+**Which to use:** Excel for testers and business people (familiar, many rows at a glance); JSON for
+people working in code and for review (GitHub shows exactly what changed). A test case can be in either:
+the test says which.
+
+**Each test names its data and spells out its own steps**; the data gives the values. Same call for
+both formats; an Excel file needs its sheet:
+
+```js
+test('TC-SALE-102 two of one item, paid by UPI', { tag: ['@nightly'] }, async ({ pos, api, testData }) => {
+  const testCase = readTestData({ file: JSON_FILE, testCaseId: 'TC-SALE-102' })   // or { file, sheet, testCaseId }
+  await reportTestData(testCase, testData)
+  const [sale] = testCase.transactions // this test case has one transaction: the sale
+  const [line] = sale.lines
+
+  // Add the item and set its quantity
+  await pos.addItem(itemOf(line))
+  await pos.setQty(itemOf(line), line.qty)
+  // The cart shows the line total and the grand total
+  await expect(pos.cartLineTotal(itemOf(line)), 'Cart: line total').toHaveText(rupees(line.lineTotal))
+  ...
+  // Pay by UPI with its transaction ID, and complete the order
+  await pos.checkout()
+  await pos.payWith(sale.paymentType, String(sale.payAmount))
+  await pos.setUpiReference(String(sale.upiTransactionId))
+  ...
+})
+```
+
+Screen steps are page object actions called one by one in the test (`addItem`, `setQty`, `payWith`,
+`startReturn`, `removeLine`...), never a generic "run this transaction" helper: a test with a discount
+calls a discount action, which a reader can see. Shared helpers only show the data and read back what the
+server saved (`reportTestData` in `src/utils/testDataReport.js`; `itemOf`, `keptAndReturned`, `checkSavedInvoice` in
+`src/utils/saleHelpers.js`). A return test returns a sale by the invoice number the sale gave. The sale is made on screen (TC-RET-202,
+`test.slow()`: two transactions on screen) or through the API (`sales.create`, TC-RET-201); TC-RET-203 also
+returns through the API (`sales.createReturn`).
+
+- **No data found, the test fails**, saying what is there: `SaleTestData.xlsx › Sales: no test case TC-SALE-999
+  (it has: TC-SALE-101, TC-RET-201)`; a missing sheet, a sheet given for a JSON file or none for an Excel file too.
+- **The data and the test must agree:** the data's Test Case ID and Title are the test's title. A mismatch
+  fails the test, naming the file and row.
+- **Data first, test later is fine.** `npm run lint` (`scripts/check-testdata.js`) lists test cases that have
+  data but no test yet, and still passes. It fails only when a test reads a Test Case ID no file has.
+- **Which file a test came from:** every data-driven test shows a **testdata** label in the report, e.g.
+  `SaleTestData.json › testCases[1]` or `SaleTestData.xlsx › Sales › row 4`, and every message about its data
+  names the same place.
+
+**A new module** (purchases, stock transfers...): a folder `testdata/<module>/` with its files, and a spec
+whose tests call `readTestData({ file, sheet, testCaseId })` and then the module's page object actions. No reader code.
 
 ## Demo data (for trying things by hand)
 

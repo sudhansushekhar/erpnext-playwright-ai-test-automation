@@ -14,7 +14,7 @@ const { FrappeClient } = require('../api/FrappeClient')
 const { ENV } = require('../../config/env')
 const { TEST_DATA, ABBR } = require('./data')
 
-const d = TEST_DATA
+const testData = TEST_DATA
 
 async function seed({ log = console.log } = {}) {
   const api = await FrappeClient.signIn(ENV.baseUrl, ENV.adminUser, ENV.adminPassword)
@@ -27,33 +27,34 @@ async function seed({ log = console.log } = {}) {
     await ensureItemSurcharge(api, log)
 
     // Parties.
-    await ensureCustomer(api, log, d.customer)
-    for (const c of d.demo.customers) await ensureCustomer(api, log, c)
-    await ensureSupplier(api, log, d.supplier)
-    for (const s of d.demo.suppliers) await ensureSupplier(api, log, s)
+    await ensureCustomer(api, log, testData.customer)
+    for (const customer of testData.demo.customers) await ensureCustomer(api, log, customer)
+    await ensureSupplier(api, log, testData.supplier)
+    for (const supplier of testData.demo.suppliers) await ensureSupplier(api, log, supplier)
 
     // Items, prices, stock.
-    for (const g of d.demo.itemGroups) await ensureItemGroup(api, log, g)
-    for (const counter of d.billingCounters) await ensureItem(api, log, counter.item, { isStock: true }) // one per billing counter
-    await ensureItem(api, log, d.items.service, { isStock: false })
-    await ensureItem(api, log, d.items.eco, { isStock: false, itemTaxTemplate: d.surcharges.item.itemTaxTemplate })
-    for (const item of d.demo.items) await ensureItem(api, log, { uom: 'Nos', ...item }, { isStock: true })
-    for (const item of [...d.billingCounters.map((c) => c.item), ...d.demo.items]) await ensureStock(api, log, item)
+    for (const group of testData.demo.itemGroups) await ensureItemGroup(api, log, group)
+    for (const counter of testData.billingCounters) await ensureItem(api, log, counter.item, { isStock: true }) // one per billing counter
+    await ensureItem(api, log, testData.items.service, { isStock: false })
+    await ensureItem(api, log, testData.items.data, { isStock: true })
+    await ensureItem(api, log, testData.items.eco, { isStock: false, itemTaxTemplate: testData.surcharges.item.itemTaxTemplate })
+    for (const item of testData.demo.items) await ensureItem(api, log, { uom: 'Nos', ...item }, { isStock: true })
+    for (const item of [...testData.billingCounters.map((counter) => counter.item), testData.items.data, ...testData.demo.items]) await ensureStock(api, log, item)
 
     // Point of sale, people, page.
     await ensurePaymentModes(api, log)
     await ensureCashierRole(api, log)
-    for (const user of d.users) await ensureUser(api, log, user)
+    for (const user of testData.users) await ensureUser(api, log, user)
     await ensureSessionLimits(api, log)
     await ensurePosProfile(api, log)
     await ensureQaPage(api, log)
     await ensureLandingPage(api, log)
 
-    const testData = { ...TEST_DATA, builtAt: new Date().toISOString() }
+    const built = { ...TEST_DATA, builtAt: new Date().toISOString() }
     fs.mkdirSync(path.dirname(ENV.testDataFile), { recursive: true })
-    fs.writeFileSync(ENV.testDataFile, JSON.stringify(testData, null, 2))
+    fs.writeFileSync(ENV.testDataFile, JSON.stringify(built, null, 2))
     log(`SEED ok: ${ENV.testDataFile}`)
-    return testData
+    return built
   } finally {
     await api.dispose()
   }
@@ -67,20 +68,20 @@ async function ensureSetupComplete(api, log) {
   if (companies.length) return
   log('SEED: completing the setup wizard for India (first run on this site)')
   const now = new Date()
-  const startYear = now.getMonth() + 1 >= d.fiscalYearStartMonth ? now.getFullYear() : now.getFullYear() - 1
-  const month = String(d.fiscalYearStartMonth).padStart(2, '0')
-  const end = new Date(startYear + 1, d.fiscalYearStartMonth - 1, 0) // the day before the next start
+  const startYear = now.getMonth() + 1 >= testData.fiscalYearStartMonth ? now.getFullYear() : now.getFullYear() - 1
+  const month = String(testData.fiscalYearStartMonth).padStart(2, '0')
+  const end = new Date(startYear + 1, testData.fiscalYearStartMonth - 1, 0) // the day before the next start
   // On a brand-new site this takes more than the default 30 s request timeout.
   await api.call(
     'frappe.desk.page.setup_wizard.setup_wizard.setup_complete',
     {
       args: JSON.stringify({
         language: 'English',
-        country: d.country,
-        timezone: d.timezone,
-        currency: d.currency,
-        company_name: d.company,
-        company_abbr: d.companyAbbr,
+        country: testData.country,
+        timezone: testData.timezone,
+        currency: testData.currency,
+        company_name: testData.company,
+        company_abbr: testData.companyAbbr,
         chart_of_accounts: 'Standard',
         fy_start_date: `${startYear}-${month}-01`,
         fy_end_date: `${end.getFullYear()}-${String(end.getMonth() + 1).padStart(2, '0')}-${String(end.getDate()).padStart(2, '0')}`,
@@ -102,37 +103,37 @@ async function ensureSetupComplete(api, log) {
  * The sales template is the only default, so every new sale on the screens gets GST.
  */
 async function ensureGst(api, log) {
-  const g = d.gst
-  await ensureAccount(api, log, { account: g.cgstAccount, label: 'Output Tax CGST', parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
-  await ensureAccount(api, log, { account: g.sgstAccount, label: 'Output Tax SGST', parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
+  const gst = testData.gst
+  await ensureAccount(api, log, { account: gst.cgstAccount, label: 'Output Tax CGST', parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
+  await ensureAccount(api, log, { account: gst.sgstAccount, label: 'Output Tax SGST', parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
 
-  for (const [rate, name] of Object.entries(g.slabs)) {
+  for (const [rate, name] of Object.entries(gst.slabs)) {
     const half = Number(rate) / 2
     await ensureItemTaxTemplate(api, log, name, `GST ${rate}%`, [
-      { tax_type: g.cgstAccount, tax_rate: half },
-      { tax_type: g.sgstAccount, tax_rate: half },
+      { tax_type: gst.cgstAccount, tax_rate: half },
+      { tax_type: gst.sgstAccount, tax_rate: half },
     ])
   }
 
   const line = (account, label) => ({ charge_type: 'On Net Total', account_head: account, description: label, rate: 0, included_in_print_rate: 1 })
-  await ensureSalesTemplate(api, log, g.template, 'GST In-State', [line(g.cgstAccount, 'CGST'), line(g.sgstAccount, 'SGST')])
+  await ensureSalesTemplate(api, log, gst.template, 'GST In-State', [line(gst.cgstAccount, 'CGST'), line(gst.sgstAccount, 'SGST')])
 
-  const defaults = await api.getList('Sales Taxes and Charges Template', { filters: [['company', '=', d.company], ['is_default', '=', 1]], limit: 20 })
+  const defaults = await api.getList('Sales Taxes and Charges Template', { filters: [['company', '=', testData.company], ['is_default', '=', 1]], limit: 20 })
   for (const { name } of defaults) {
-    if (name === g.template) continue
+    if (name === gst.template) continue
     log(`SEED: ${name} is no longer the default sales tax`)
     await api.update('Sales Taxes and Charges Template', name, { is_default: 0 })
   }
-  const template = await api.getDoc('Sales Taxes and Charges Template', g.template)
+  const template = await api.getDoc('Sales Taxes and Charges Template', gst.template)
   if (!template.is_default) {
-    log(`SEED: making ${g.template} the default sales tax`)
-    await api.update('Sales Taxes and Charges Template', g.template, { is_default: 1 })
+    log(`SEED: making ${gst.template} the default sales tax`)
+    await api.update('Sales Taxes and Charges Template', gst.template, { is_default: 1 })
   }
 }
 
 /** Sale surcharge: a fixed amount on the whole sale, booked as income. */
 async function ensureSaleSurcharge(api, log) {
-  const { label, amount, account, template } = d.surcharges.sale
+  const { label, amount, account, template } = testData.surcharges.sale
   await ensureAccount(api, log, { account, label, parent: `Indirect Income - ${ABBR}`, type: 'Chargeable' })
   await ensureSalesTemplate(api, log, template, label, [
     { charge_type: 'Actual', account_head: account, description: label, tax_amount: amount },
@@ -144,7 +145,7 @@ async function ensureSaleSurcharge(api, log) {
  * Item Tax Template raises it to `rate` for that item's lines. Other items pay nothing.
  */
 async function ensureItemSurcharge(api, log) {
-  const { label, rate, account, itemTaxTemplate, template } = d.surcharges.item
+  const { label, rate, account, itemTaxTemplate, template } = testData.surcharges.item
   await ensureAccount(api, log, { account, label, parent: `Duties and Taxes - ${ABBR}`, type: 'Tax', rate: 0 })
   await ensureItemTaxTemplate(api, log, itemTaxTemplate, `${label} ${rate}%`, [{ tax_type: account, tax_rate: rate }])
   await ensureSalesTemplate(api, log, template, 'QA Item Surcharge', [
@@ -158,7 +159,7 @@ async function ensureAccount(api, log, { account, label, parent, type, rate }) {
   await api.insert('Account', {
     account_name: label,
     parent_account: parent,
-    company: d.company,
+    company: testData.company,
     account_type: type,
     ...(rate !== undefined ? { tax_rate: rate } : {}),
   })
@@ -167,13 +168,13 @@ async function ensureAccount(api, log, { account, label, parent, type, rate }) {
 async function ensureItemTaxTemplate(api, log, name, title, taxes) {
   if (await api.findDoc('Item Tax Template', name)) return
   log(`SEED: creating item tax template ${name}`)
-  await api.insert('Item Tax Template', { title, company: d.company, taxes })
+  await api.insert('Item Tax Template', { title, company: testData.company, taxes })
 }
 
 async function ensureSalesTemplate(api, log, name, title, taxes) {
   if (await api.findDoc('Sales Taxes and Charges Template', name)) return
   log(`SEED: creating sales taxes and charges template ${name}`)
-  await api.insert('Sales Taxes and Charges Template', { title, company: d.company, taxes })
+  await api.insert('Sales Taxes and Charges Template', { title, company: testData.company, taxes })
 }
 
 // ── Parties ────────────────────────────────────────────────────────────────────────────────
@@ -181,7 +182,7 @@ async function ensureSalesTemplate(api, log, name, title, taxes) {
 async function ensureCustomer(api, log, { name, group, type, city, state }) {
   if (!(await api.findDoc('Customer', name))) {
     log(`SEED: creating customer ${name}`)
-    await api.insert('Customer', { customer_name: name, customer_type: type || 'Company', customer_group: group, territory: d.territory })
+    await api.insert('Customer', { customer_name: name, customer_type: type || 'Company', customer_group: group, territory: testData.territory })
   }
   if (!city) return
   const [address] = await api.getList('Address', { filters: [['address_title', '=', name]], limit: 1 })
@@ -192,7 +193,7 @@ async function ensureCustomer(api, log, { name, group, type, city, state }) {
     address_line1: 'Demo address (not real)',
     city,
     state,
-    country: d.country,
+    country: testData.country,
     links: [{ link_doctype: 'Customer', link_name: name }],
   })
 }
@@ -213,7 +214,7 @@ async function ensureItemGroup(api, log, name) {
 
 /** An item, its tax template (its GST slab, or a given one), and its prices. */
 async function ensureItem(api, log, item, { isStock, itemTaxTemplate }) {
-  const taxTemplate = itemTaxTemplate || (item.gst !== undefined ? d.gst.slabs[item.gst] : undefined)
+  const taxTemplate = itemTaxTemplate || (item.gst !== undefined ? testData.gst.slabs[item.gst] : undefined)
   const taxes = taxTemplate ? [{ item_tax_template: taxTemplate }] : []
   const existing = await api.findDoc('Item', item.code)
   if (!existing) {
@@ -228,14 +229,14 @@ async function ensureItem(api, log, item, { isStock, itemTaxTemplate }) {
       taxes,
     })
   } else {
-    const current = (existing.taxes || []).map((t) => t.item_tax_template)
-    if (current.join() !== taxes.map((t) => t.item_tax_template).join()) {
+    const current = (existing.taxes || []).map((itemTax) => itemTax.item_tax_template)
+    if (current.join() !== taxes.map((itemTax) => itemTax.item_tax_template).join()) {
       log(`SEED: correcting the tax template of ${item.code} to ${taxTemplate || 'none'}`)
       await api.update('Item', item.code, { taxes })
     }
   }
-  await ensureItemPrice(api, log, item.code, d.sellingPriceList, item.sellingPrice)
-  if (item.buyingPrice) await ensureItemPrice(api, log, item.code, d.buyingPriceList, item.buyingPrice)
+  await ensureItemPrice(api, log, item.code, testData.sellingPriceList, item.sellingPrice)
+  if (item.buyingPrice) await ensureItemPrice(api, log, item.code, testData.buyingPriceList, item.buyingPrice)
 }
 
 /** One price per item and price list, set to the value in data.js (corrected if someone changed it). */
@@ -258,19 +259,19 @@ async function ensureItemPrice(api, log, itemCode, priceList, rate) {
 /** Top a stock item back up to stockQty in the warehouse, at its buying price. */
 async function ensureStock(api, log, item) {
   const [bin] = await api.getList('Bin', {
-    filters: [['item_code', '=', item.code], ['warehouse', '=', d.warehouse]],
+    filters: [['item_code', '=', item.code], ['warehouse', '=', testData.warehouse]],
     fields: ['actual_qty'],
     limit: 1,
   })
   const onHand = bin ? bin.actual_qty : 0
   if (onHand >= item.stockQty) return
   const qty = item.stockQty - onHand
-  log(`SEED: receiving ${qty} × ${item.code} into ${d.warehouse} (had ${onHand})`)
+  log(`SEED: receiving ${qty} × ${item.code} into ${testData.warehouse} (had ${onHand})`)
   const entry = await api.insert('Stock Entry', {
     stock_entry_type: 'Material Receipt',
-    company: d.company,
+    company: testData.company,
     remarks: 'QA seed: stock top-up',
-    items: [{ item_code: item.code, qty, t_warehouse: d.warehouse, basic_rate: item.buyingPrice }],
+    items: [{ item_code: item.code, qty, t_warehouse: testData.warehouse, basic_rate: item.buyingPrice }],
   })
   await api.call('frappe.client.submit', { doc: JSON.stringify(entry) })
 }
@@ -283,8 +284,8 @@ async function ensureStock(api, log, item) {
  * The setup wizard makes Cash (linked to Cash - QAR) and Credit Card; UPI and Debit Card are new.
  */
 async function ensurePaymentModes(api, log) {
-  await ensureAccount(api, log, { account: d.bankAccount, label: 'QA Bank', parent: `Bank Accounts - ${ABBR}`, type: 'Bank' })
-  for (const { mode, type, account } of d.paymentModes) {
+  await ensureAccount(api, log, { account: testData.bankAccount, label: 'QA Bank', parent: `Bank Accounts - ${ABBR}`, type: 'Bank' })
+  for (const { mode, type, account } of testData.paymentModes) {
     const doc = await api.findDoc('Mode of Payment', mode)
     if (!doc) {
       log(`SEED: creating payment mode ${mode}`)
@@ -292,16 +293,16 @@ async function ensurePaymentModes(api, log) {
         mode_of_payment: mode,
         type,
         enabled: 1,
-        accounts: [{ company: d.company, default_account: account }],
+        accounts: [{ company: testData.company, default_account: account }],
       })
       continue
     }
     const rows = doc.accounts || []
-    const mine = rows.find((r) => r.company === d.company)
+    const mine = rows.find((row) => row.company === testData.company)
     if (mine && mine.default_account === account) continue
     log(`SEED: linking payment mode ${mode} to ${account}`)
-    const others = rows.filter((r) => r.company !== d.company).map(({ company, default_account }) => ({ company, default_account }))
-    await api.update('Mode of Payment', mode, { accounts: [...others, { company: d.company, default_account: account }] })
+    const others = rows.filter((row) => row.company !== testData.company).map(({ company, default_account }) => ({ company, default_account }))
+    await api.update('Mode of Payment', mode, { accounts: [...others, { company: testData.company, default_account: account }] })
   }
 }
 
@@ -311,7 +312,7 @@ async function ensurePaymentModes(api, log) {
  * custom ones, so adding a role never drops the existing rules.
  */
 async function ensureCashierRole(api, log) {
-  const { name: role, doctypes, rights, homePage } = d.cashierRole
+  const { name: role, doctypes, rights, homePage } = testData.cashierRole
   const existing = await api.findDoc('Role', role)
   if (!existing) {
     log(`SEED: creating role ${role}`)
@@ -320,7 +321,7 @@ async function ensureCashierRole(api, log) {
     log(`SEED: ${role} signs in to ${homePage}`)
     await api.update('Role', role, { home_page: homePage })
   }
-  const pm = 'frappe.core.page.permission_manager.permission_manager'
+  const permissionManager = 'frappe.core.page.permission_manager.permission_manager'
   for (const doctype of doctypes) {
     let [rule] = await api.getList('Custom DocPerm', {
       filters: [['parent', '=', doctype], ['role', '=', role], ['permlevel', '=', 0]],
@@ -329,14 +330,14 @@ async function ensureCashierRole(api, log) {
     })
     if (!rule) {
       log(`SEED: letting ${role} open, close and read its own ${doctype}`)
-      await api.call(`${pm}.add`, { parent: doctype, role, permlevel: 0 })
-      await api.call(`${pm}.update`, { doctype, role, permlevel: 0, ptype: 'if_owner', value: '1', if_owner: 0 })
+      await api.call(`${permissionManager}.add`, { parent: doctype, role, permlevel: 0 })
+      await api.call(`${permissionManager}.update`, { doctype, role, permlevel: 0, ptype: 'if_owner', value: '1', if_owner: 0 })
       rule = { if_owner: 1 }
     }
-    if (!rule.if_owner) await api.call(`${pm}.update`, { doctype, role, permlevel: 0, ptype: 'if_owner', value: '1', if_owner: 0 })
+    if (!rule.if_owner) await api.call(`${permissionManager}.update`, { doctype, role, permlevel: 0, ptype: 'if_owner', value: '1', if_owner: 0 })
     for (const ptype of rights) {
       if (rule[ptype]) continue
-      await api.call(`${pm}.update`, { doctype, role, permlevel: 0, ptype, value: '1', if_owner: 1 })
+      await api.call(`${permissionManager}.update`, { doctype, role, permlevel: 0, ptype, value: '1', if_owner: 1 })
     }
   }
 }
@@ -348,19 +349,19 @@ async function ensureCashierRole(api, log) {
  */
 async function ensureSessionLimits(api, log) {
   const settings = await api.getDoc('System Settings', 'System Settings')
-  if (Boolean(settings.deny_multiple_sessions) !== d.sessions.denyMultiple) {
+  if (Boolean(settings.deny_multiple_sessions) !== testData.sessions.denyMultiple) {
     log('SEED: one session per user (System Settings > Allow only one session per user)')
-    await api.update('System Settings', 'System Settings', { deny_multiple_sessions: d.sessions.denyMultiple ? 1 : 0 })
+    await api.update('System Settings', 'System Settings', { deny_multiple_sessions: testData.sessions.denyMultiple ? 1 : 0 })
   }
   const admin = await api.getDoc('User', ENV.adminUser)
-  if (admin.simultaneous_sessions !== d.sessions.others) {
-    await api.update('User', ENV.adminUser, { simultaneous_sessions: d.sessions.others })
+  if (admin.simultaneous_sessions !== testData.sessions.others) {
+    await api.update('User', ENV.adminUser, { simultaneous_sessions: testData.sessions.others })
   }
 }
 
 /** A demo user with the ERPNext roles of their demo role; password from DEMO_USER_PASSWORD. */
 async function ensureUser(api, log, user) {
-  const roles = d.roles[user.role].map((role) => ({ role }))
+  const roles = testData.roles[user.role].map((role) => ({ role }))
   const fields = {
     first_name: user.first,
     last_name: user.last,
@@ -368,7 +369,7 @@ async function ensureUser(api, log, user) {
     enabled: 1,
     roles,
     new_password: ENV.demoUserPassword,
-    simultaneous_sessions: user.role === 'Cashier' ? d.sessions.cashier : d.sessions.others,
+    simultaneous_sessions: user.role === 'Cashier' ? testData.sessions.cashier : testData.sessions.others,
   }
   if (await api.findDoc('User', user.email)) {
     await api.update('User', user.email, fields)
@@ -384,31 +385,31 @@ async function ensureUser(api, log, user) {
  * their default, a cashier's counter is the cashier's default.
  */
 async function ensurePosProfile(api, log) {
-  const p = d.posProfile
-  const supervisors = d.users.filter((u) => u.role !== 'Cashier').map((u) => u.email)
+  const qaProfile = testData.posProfile
+  const supervisors = testData.users.filter((user) => user.role !== 'Cashier').map((user) => user.email)
   const profiles = [
-    { name: p.name, users: [ENV.adminUser, ...supervisors], defaultFor: [ENV.adminUser, ...supervisors] },
-    ...d.billingCounters.map((c) => ({ name: c.name, users: [c.cashier.email, ...supervisors], defaultFor: [c.cashier.email] })),
+    { name: qaProfile.name, users: [ENV.adminUser, ...supervisors], defaultFor: [ENV.adminUser, ...supervisors] },
+    ...testData.billingCounters.map((counter) => ({ name: counter.name, users: [counter.cashier.email, ...supervisors], defaultFor: [counter.cashier.email] })),
   ]
   for (const { name, users, defaultFor } of profiles) {
     const profile = {
-      company: d.company,
-      currency: d.currency,
-      warehouse: d.warehouse,
-      selling_price_list: d.sellingPriceList,
-      customer: p.customer,
-      taxes_and_charges: d.gst.template,
+      company: testData.company,
+      currency: testData.currency,
+      warehouse: testData.warehouse,
+      selling_price_list: testData.sellingPriceList,
+      customer: qaProfile.customer,
+      taxes_and_charges: testData.gst.template,
       // A sale discount on Net Total lowers the GST with the price; on Grand Total it does not
       // (measured: 2 x 118.00 less 10% -> GST 32.40 on Net Total, but 36.00 on Grand Total).
       apply_discount_on: 'Net Total',
-      cost_center: d.costCenter,
-      write_off_account: p.writeOffAccount,
-      write_off_cost_center: d.costCenter,
-      write_off_limit: p.writeOffLimit,
+      cost_center: testData.costCenter,
+      write_off_account: qaProfile.writeOffAccount,
+      write_off_cost_center: testData.costCenter,
+      write_off_limit: qaProfile.writeOffLimit,
       update_stock: 1,
       allow_rate_change: 1,
       allow_discount_change: 1,
-      payments: d.paymentModes.map((m) => ({ mode_of_payment: m.mode, default: m.default ? 1 : 0 })),
+      payments: testData.paymentModes.map((paymentMode) => ({ mode_of_payment: paymentMode.mode, default: paymentMode.default ? 1 : 0 })),
       applicable_for_users: users.map((user) => ({ user, default: defaultFor.includes(user) ? 1 : 0 })),
     }
     if (await api.findDoc('POS Profile', name)) {
@@ -434,10 +435,10 @@ async function ensurePosProfile(api, log) {
  * Sidebar can only be edited in developer mode, so the menu is added as a site customization.
  */
 async function ensureQaPage(api, log) {
-  const name = d.qaPage
-  const { stock, service, eco } = d.items
-  const { sale, item } = d.surcharges
-  const money = (n) => `${d.currencySymbol}${n.toFixed(2)}`
+  const name = testData.qaPage
+  const { stock, service, eco } = testData.items
+  const { sale, item } = testData.surcharges
+  const money = (amount) => `${testData.currencySymbol}${amount.toFixed(2)}`
 
   const shortcuts = [
     ['Point of Sale', 'Page', 'point-of-sale'],
@@ -446,18 +447,18 @@ async function ensureQaPage(api, log) {
   ].map(([label, type, linkTo]) => ({ label, type, link_to: linkTo || label, doc_view: type === 'DocType' ? 'List' : '' }))
 
   const para = (html) => ({ type: 'paragraph', data: { text: html, col: 12 } })
-  const users = d.users.map((u) => `${u.first} ${u.last} (${u.role}, ${u.email})`).join(' · ')
+  const users = testData.users.map((user) => `${user.first} ${user.last} (${user.role}, ${user.email})`).join(' · ')
   const content = [
     { type: 'header', data: { text: `<span class="h4"><b>${name}</b></span>`, col: 12 } },
     para('Test and demo data prepared by the seed before every test run. Every value: <code>docs/test-data.md</code> in the repository.'),
-    para(`<b>Company</b> ${d.company} (${d.country}, ${d.currency}) · <b>Warehouse</b> ${d.warehouse} · <b>POS</b> ${d.posProfile.name}, pays ${d.paymentModes.map((m) => m.mode).join(', ')}`),
-    para(`<b>GST</b> ${d.gst.template}: CGST + SGST, included in prices, slabs ${Object.keys(d.gst.slabs).join('%, ')}% · <b>Sale surcharge</b> ${sale.label} ${money(sale.amount)} · <b>Item surcharge</b> ${item.rate}% ${item.label} on ${eco.code}`),
+    para(`<b>Company</b> ${testData.company} (${testData.country}, ${testData.currency}) · <b>Warehouse</b> ${testData.warehouse} · <b>POS</b> ${testData.posProfile.name}, pays ${testData.paymentModes.map((paymentMode) => paymentMode.mode).join(', ')}`),
+    para(`<b>GST</b> ${testData.gst.template}: CGST + SGST, included in prices, slabs ${Object.keys(testData.gst.slabs).join('%, ')}% · <b>Sale surcharge</b> ${sale.label} ${money(sale.amount)} · <b>Item surcharge</b> ${item.rate}% ${item.label} on ${eco.code}`),
     para(`<b>Test items</b> ${stock.code} ${money(stock.sellingPrice)} (GST ${stock.gst}%, ${stock.stockQty} in stock) · ${service.code} ${money(service.sellingPrice)} (GST ${service.gst}%) · ${eco.code} ${money(eco.sellingPrice)}`),
-    para(`<b>Demo items</b> ${d.demo.items.length} grocery, personal care, home care, electronics and apparel items · <b>Demo customers</b> ${d.demo.customers.map((c) => c.name).join(', ')}`),
+    para(`<b>Demo items</b> ${testData.demo.items.length} grocery, personal care, home care, electronics and apparel items · <b>Demo customers</b> ${testData.demo.customers.map((customer) => customer.name).join(', ')}`),
     para(`<b>Users</b> ${users}. Password: DEMO_USER_PASSWORD in your <code>.env</code>.`),
     { type: 'header', data: { text: '<span class="h5"><b>Open</b></span>', col: 12 } },
-    ...shortcuts.map((s) => ({ type: 'shortcut', data: { shortcut_name: s.label, col: 3 } })),
-  ].map((block, i) => ({ id: `qa${i}`, ...block }))
+    ...shortcuts.map((shortcut) => ({ type: 'shortcut', data: { shortcut_name: shortcut.label, col: 3 } })),
+  ].map((block, index) => ({ id: `qa${index}`, ...block }))
 
   if (!(await api.findDoc('Module Def', name))) {
     log(`SEED: creating module ${name}`)
@@ -504,9 +505,9 @@ async function ensureQaPage(api, log) {
  */
 async function ensureLandingPage(api, log) {
   const user = await api.getDoc('User', ENV.adminUser)
-  if (user.default_workspace === d.landingWorkspace) return
-  log(`SEED: setting ${ENV.adminUser}'s Default Workspace to ${d.landingWorkspace}`)
-  await api.update('User', ENV.adminUser, { default_workspace: d.landingWorkspace })
+  if (user.default_workspace === testData.landingWorkspace) return
+  log(`SEED: setting ${ENV.adminUser}'s Default Workspace to ${testData.landingWorkspace}`)
+  await api.update('User', ENV.adminUser, { default_workspace: testData.landingWorkspace })
 }
 
 module.exports = { seed, TEST_DATA }
