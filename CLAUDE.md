@@ -53,6 +53,11 @@ agent edits (`.claude/settings.json`): a violation is sent straight back to the 
    (`.describe('Checkout button')`), and a value a test relies on is noted (`note('Invoice … submitted')`).
    **[lint]** Every check has a message, its title in the report: `expect(qty, 'Stock is exactly 1 lower')`.
    The report then reads like the test case. Never put a password in a step title or a note.
+   **Check what is on screen through its element** (`expect(pos.cartTotal('Grand Total')).toHaveText(...)`),
+   not a value read from it: the check waits for the screen, and a failure names and highlights the
+   element in the trace. **Hard** checks (`expect`) for the screen and for anything later steps need;
+   **soft** checks (`expect.soft`) for independent values read back afterwards (the saved record, taxes,
+   payments, stock), so one run reports every mismatch. A soft failure still fails the test.
 5. **Find elements the way a person does:** `getByRole` with a name, `getByLabel`, `getByText`,
    `getByPlaceholder`. CSS only where nothing else works, with a comment saying why.
 6. **[lint] Wait for the server, not the clock.** Wait for a response, a URL or a visible result.
