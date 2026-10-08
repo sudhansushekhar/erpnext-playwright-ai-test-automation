@@ -62,6 +62,11 @@ module.exports = [
           message: 'Rule 4: no locators in specs. Add a method or property to a page object in src/pages.',
         },
         {
+          // playwright/valid-expect counts arguments of expect() only; soft and poll checks need a message too.
+          selector: "CallExpression[callee.object.name='expect'][callee.property.name=/^(soft|poll)$/][arguments.length<2]",
+          message: 'Rule 4: every check has a message, its title in the report: expect.soft(value, "what it checks").',
+        },
+        {
           selector: 'CallExpression[callee.object.name="test"][callee.property.name=/^(fixme|fail)$/]',
           message: 'Rule 9: nothing switched off. Fix the test, or quarantine it (rule 8).',
         },

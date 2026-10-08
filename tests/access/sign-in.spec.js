@@ -20,8 +20,8 @@ test('TC-SIGNIN-001 a wrong password is refused and starts no session', { tag: [
   // ...and this browser holds no signed-in session: the server set it to Guest,
   // and refuses a request that needs a signed-in user.
   const cookies = Object.fromEntries((await context.cookies()).map((c) => [c.name, c.value]))
-  expect(cookies.user_id, "The browser's session is Guest").toBe('Guest')
-  expect(await session.sessionUser(), 'The server sees nobody signed in').toBeNull()
+  expect.soft(cookies.user_id, "The browser's session is Guest").toBe('Guest')
+  expect.soft(await session.sessionUser(), 'The server sees nobody signed in').toBeNull()
 })
 
 test('TC-SIGNIN-002 Administrator signs in and lands on the QA Testing page', { tag: ['@smoke'] }, async ({
@@ -40,7 +40,7 @@ test('TC-SIGNIN-002 Administrator signs in and lands on the QA Testing page', { 
   await expect(deskPage.page, 'Lands on the QA Testing page').toHaveURL(new RegExp(`${deskPage.pathOf(testData.landingWorkspace)}$`))
   await expect(deskPage.qaTestingIntro, 'The QA Testing page is shown').toBeVisible()
   await expect(deskPage.serverError, 'No "Server Error" page').toBeHidden()
-  expect(await session.sessionUser(), 'Signed in as Administrator').toBe(users.admin.email)
+  expect.soft(await session.sessionUser(), 'Signed in as Administrator').toBe(users.admin.email)
 })
 
 test('TC-SIGNIN-003 a cashier signs in straight to the Point of Sale, ready to open a shift', { tag: ['@smoke'] }, async ({
@@ -60,7 +60,7 @@ test('TC-SIGNIN-003 a cashier signs in straight to the Point of Sale, ready to o
   expect(response.status(), 'The server accepts the sign-in').toBe(200)
   await expect(posPage.page, 'Lands on the Point of Sale').toHaveURL(/\/desk\/selling\/point-of-sale$/)
   await expect(posPage.openingDialog, 'The opening dialog asks to open a shift').toBeVisible()
-  expect(await session.sessionUser(), 'Signed in as the cashier').toBe(cashier.email)
+  expect.soft(await session.sessionUser(), 'Signed in as the cashier').toBe(cashier.email)
 })
 
 test('TC-SIGNIN-004 a cashier stays on the Point of Sale: other desk pages send them back', { tag: ['@nightly'] }, async ({
@@ -106,6 +106,6 @@ test('TC-SIGNIN-005 a cashier signed in on a second device is signed out of the 
   // Device B
   await secondDevice.loginPage.signInThroughApi(cashier.email, cashier.password)
 
-  expect(await secondDevice.session.sessionUser(), 'Device B is signed in as the cashier').toBe(cashier.email)
-  expect(await session.sessionStatus(), "Device A's session has ended (HTTP 401)").toBe(401)
+  expect.soft(await secondDevice.session.sessionUser(), 'Device B is signed in as the cashier').toBe(cashier.email)
+  expect.soft(await session.sessionStatus(), "Device A's session has ended (HTTP 401)").toBe(401)
 })

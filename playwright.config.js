@@ -41,8 +41,11 @@ module.exports = defineConfig({
 
   use: {
     baseURL: ENV.baseUrl,
+    // Evidence of a failure, kept only when a test fails: the trace (every step, DOM, network,
+    // console), a screenshot at the moment it failed, and a video of the test.
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
+    video: 'retain-on-failure',
     viewport: { width: 1440, height: 900 },
   },
 

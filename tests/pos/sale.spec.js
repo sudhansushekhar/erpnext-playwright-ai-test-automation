@@ -18,19 +18,18 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
   const stockBefore = await api.stockQty(item.code, testData.warehouse)
 
   await pos.addItem(item)
-  expect(await pos.totals(), 'The cart shows the price split: net, CGST, SGST, grand total').toMatchObject({
-    'Net Total': rupees(price.net),
-    CGST: rupees(price.halfGst),
-    SGST: rupees(price.halfGst),
-    'Grand Total': rupees(price.gross),
-  })
+  // On screen: hard checks on the elements (the sale goes on only if the cart is right).
+  await expect(pos.cartTotal('Net Total'), 'Cart: net total').toHaveText(rupees(price.net))
+  await expect(pos.cartTotal('CGST'), 'Cart: CGST, half the GST').toHaveText(rupees(price.halfGst))
+  await expect(pos.cartTotal('SGST'), 'Cart: SGST, half the GST').toHaveText(rupees(price.halfGst))
+  await expect(pos.cartTotal('Grand Total'), 'Cart: grand total, GST included').toHaveText(rupees(price.gross))
   await pos.checkout()
   await pos.payWith('Cash', String(price.gross))
   const sale = await pos.completeOrder()
   expect(sale.accepted, 'The server accepted the sale').toBe(true)
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)
-  expect(invoice, 'Saved invoice: a submitted POS sale to the customer, with its totals, cashier and counter').toMatchObject({
+  expect.soft(invoice, 'Saved invoice: a submitted POS sale to the customer, with its totals, cashier and counter').toMatchObject({
     is_pos: 1,
     docstatus: 1,
     customer: testData.posProfile.customer,
@@ -39,13 +38,13 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
     owner: shift.cashier,
     pos_profile: shift.counter,
   })
-  expect(taxOn(invoice, testData.gst.cgstAccount), 'CGST booked: half the GST').toBe(price.halfGst)
-  expect(taxOn(invoice, testData.gst.sgstAccount), 'SGST booked: half the GST').toBe(price.halfGst)
-  expect(paidRows(invoice), 'Paid in full by Cash, and nothing else').toEqual([{ mode: 'Cash', amount: price.gross }])
+  expect.soft(taxOn(invoice, testData.gst.cgstAccount), 'CGST booked: half the GST').toBe(price.halfGst)
+  expect.soft(taxOn(invoice, testData.gst.sgstAccount), 'SGST booked: half the GST').toBe(price.halfGst)
+  expect.soft(paidRows(invoice), 'Paid in full by Cash, and nothing else').toEqual([{ mode: 'Cash', amount: price.gross }])
 
   // Stock: exactly one fewer, and the invoice itself booked the -1.
-  expect(await api.stockQty(item.code, testData.warehouse), 'Stock is exactly 1 lower').toBe(stockBefore - 1)
-  expect(await api.stockMovements(sale.name), 'This invoice took exactly 1 of the item out of the warehouse').toEqual([
+  expect.soft(await api.stockQty(item.code, testData.warehouse), 'Stock is exactly 1 lower').toBe(stockBefore - 1)
+  expect.soft(await api.stockMovements(sale.name), 'This invoice took exactly 1 of the item out of the warehouse').toEqual([
     { item_code: item.code, warehouse: testData.warehouse, actual_qty: -1 },
   ])
 })
@@ -75,11 +74,11 @@ test('TC-POS-002 a cashier sells by UPI: the transaction ID is saved with the sa
   expect(sale.accepted, 'The server accepted the sale').toBe(true)
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)
-  expect(paidRows(invoice), 'Paid in full by UPI').toEqual([{ mode: 'UPI', amount: item.sellingPrice }])
-  expect(invoice, 'Saved invoice keeps the UPI transaction ID').toMatchObject({ docstatus: 1, grand_total: item.sellingPrice, rpi_upi_reference: utr })
-  expect(invoice.rpi_card_type || null, 'No card type saved').toBeNull()
-  expect(invoice.rpi_card_last4 || null, 'No card last 4 digits saved').toBeNull()
-  expect(invoice.rpi_card_approval_code || null, 'No card approval code saved').toBeNull()
+  expect.soft(paidRows(invoice), 'Paid in full by UPI').toEqual([{ mode: 'UPI', amount: item.sellingPrice }])
+  expect.soft(invoice, 'Saved invoice keeps the UPI transaction ID').toMatchObject({ docstatus: 1, grand_total: item.sellingPrice, rpi_upi_reference: utr })
+  expect.soft(invoice.rpi_card_type || null, 'No card type saved').toBeNull()
+  expect.soft(invoice.rpi_card_last4 || null, 'No card last 4 digits saved').toBeNull()
+  expect.soft(invoice.rpi_card_approval_code || null, 'No card approval code saved').toBeNull()
 })
 
 test('TC-POS-003 a card payment without its last 4 digits is refused at Complete Order', { tag: ['@nightly'] }, async ({
@@ -97,7 +96,7 @@ test('TC-POS-003 a card payment without its last 4 digits is refused at Complete
 
   expect(sale.accepted, 'The server refused the sale').toBe(false)
   await expect(pos.errorDialog, "The screen asks for the card's last 4 digits").toContainText("Enter the card's last 4 digits for the card payment.")
-  expect((await api.getDoc('Sales Invoice', sale.name)).docstatus, 'The invoice is still a draft (not submitted)').toBe(0)
+  expect.soft((await api.getDoc('Sales Invoice', sale.name)).docstatus, 'The invoice is still a draft (not submitted)').toBe(0)
 })
 
 test('TC-POS-004 a card sale keeps the card type, last 4 digits and approval code', { tag: ['@nightly'] }, async ({
@@ -118,14 +117,14 @@ test('TC-POS-004 a card sale keeps the card type, last 4 digits and approval cod
   expect(sale.accepted, 'The server accepted the sale').toBe(true)
 
   const invoice = await api.getDoc('Sales Invoice', sale.name)
-  expect(paidRows(invoice), 'Paid in full by Debit Card').toEqual([{ mode: 'Debit Card', amount: item.sellingPrice }])
-  expect(invoice, 'Saved invoice keeps the card type, last 4 digits and approval code (in capitals)').toMatchObject({
+  expect.soft(paidRows(invoice), 'Paid in full by Debit Card').toEqual([{ mode: 'Debit Card', amount: item.sellingPrice }])
+  expect.soft(invoice, 'Saved invoice keeps the card type, last 4 digits and approval code (in capitals)').toMatchObject({
     docstatus: 1,
     rpi_card_type: card.type,
     rpi_card_last4: card.last4,
     rpi_card_approval_code: card.approvalSaved,
   })
-  expect(invoice.rpi_upi_reference || null, 'No UPI transaction ID saved').toBeNull()
+  expect.soft(invoice.rpi_upi_reference || null, 'No UPI transaction ID saved').toBeNull()
 })
 
 test('TC-POS-005 the number pad takes whole rupees and paise', { tag: ['@nightly'] }, async ({ pos, counter }) => {
@@ -162,5 +161,5 @@ test('TC-POS-006 opening a shift asks only for the cash float', { tag: ['@nightl
   await expect(posBeforeOpening.openingRowActions, 'No Delete row / Duplicate row buttons').toHaveCount(0)
 
   // Nothing was submitted: the cashier still has no open shift.
-  expect(await shifts.openOf(email), 'Nothing was submitted: the cashier has no open shift').toEqual([])
+  expect.soft(await shifts.openOf(email), 'Nothing was submitted: the cashier has no open shift').toEqual([])
 })

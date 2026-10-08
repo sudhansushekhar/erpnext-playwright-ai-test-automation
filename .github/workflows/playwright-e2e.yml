@@ -141,13 +141,13 @@ jobs:
           retention-days: 14
 
       # The dashboard is public: only the reporting-labs report goes there (passwords and payment
-      # details masked by reporting-labs.config.js), without trace files, which record what was typed.
+      # details masked by reporting-labs.config.js), without traces or videos, which record what was typed.
       - name: Prepare the dashboard
         if: always() && env.SUITE == 'full' && github.ref == 'refs/heads/main'
         run: |
           mkdir -p _site
           cp -r .results/reporting-labs/. _site/
-          find _site -name '*.zip' -delete
+          find _site \( -name '*.zip' -o -name '*.webm' \) -delete
           touch _site/.nojekyll
 
       - name: Upload the dashboard

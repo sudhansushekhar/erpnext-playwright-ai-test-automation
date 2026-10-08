@@ -67,16 +67,15 @@ class PosPage {
     })
   }
 
-  /** The cart's totals as shown, e.g. { 'Net Total': '₹ 100.00', CGST: '₹ 9.00', ... }. */
-  async totals() {
-    return step('Read the cart totals', async () => {
-      // The box shows each label on one line and its value on the next.
-      const lines = (await this.cartTotals.innerText()).split('\n').map((l) => l.trim()).filter(Boolean)
-      const totals = {}
-      for (let i = 0; i < lines.length - 1; i++) if (lines[i + 1].startsWith('₹')) totals[lines[i]] = lines[i + 1]
-      await note(`Cart totals: ${Object.entries(totals).map(([k, v]) => `${k} ${v}`).join(' · ')}`)
-      return totals
-    })
+  /**
+   * One of the cart's totals, by its label as shown: "Net Total", "CGST", "SGST", "Grand Total".
+   * Check it as an element, e.g. expect(pos.cartTotal('Grand Total')).toHaveText('₹ 118.00'): the
+   * check waits for the screen, and a failure names and highlights this element in the trace.
+   */
+  cartTotal(label) {
+    // XPath: the cart shows each total as a label followed by its value, with no accessible name
+    // tying them together; the value is the label's next element.
+    return this.cartTotals.getByText(label, { exact: true }).locator('xpath=following-sibling::*[1]').describe(`Cart ${label}`)
   }
 
   /** Go to payment; waits until ERPNext has selected the default payment mode (Cash). */
