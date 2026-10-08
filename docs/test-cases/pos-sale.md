@@ -227,6 +227,7 @@ failed, so the billing counter is never left open for the next test. Amounts fro
 | REQ-POS-015 booked as a Sales Invoice | TC-POS-001, TC-POS-002, TC-POS-004 |
 | REQ-POS-016 cashier closes their own shift | the `shift` fixture (API, every test); TC-POS-011 (draft: on screen) |
 | REQ-POS-017 to 019 sign-in, POS only, one device | `docs/test-cases/sign-in.md` (TC-SIGNIN-003 to 005) |
+| REQ-POS-020 returns | `docs/test-cases/sale-data.md` (TC-DATA-RETURN: TC-RET-201, TC-RET-202) |
 
 ## Open questions
 

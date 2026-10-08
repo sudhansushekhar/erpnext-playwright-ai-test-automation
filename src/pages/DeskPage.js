@@ -34,7 +34,7 @@ class DeskPage {
   /** Wait until the desk shows a page titled `title` (the browser tab's title), e.g. "Item". */
   async shows(title) {
     await step(`Wait for the page "${title}"`, async () => {
-      await this.page.waitForFunction((t) => document.title.startsWith(t), title)
+      await this.page.waitForFunction((expected) => document.title.startsWith(expected), title)
     })
   }
 }

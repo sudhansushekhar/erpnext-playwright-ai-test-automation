@@ -8,8 +8,10 @@
  *              rule 9  no .only / .skip / .fixme / .fail
  *              rule 4  every expect has a message (its title in the report)
  *   src/**     rule 6  no page.waitForTimeout either
+ *   all files          readable names: at least 3 characters (id-length), no `tx`, `tc`, `c`
+ *   scripts/check-testdata.js (also in `npm run lint`): tests read data that exists; data without a test is listed
  */
-const js = require('@eslint/js')
+const eslintJs = require('@eslint/js')
 const globals = require('globals')
 const playwright = require('eslint-plugin-playwright')
 
@@ -18,12 +20,16 @@ const LOCATOR_METHODS = 'locator|getByRole|getByText|getByLabel|getByPlaceholder
 module.exports = [
   { ignores: ['node_modules/', '.results/'] },
 
-  js.configs.recommended,
+  eslintJs.configs.recommended,
   {
     languageOptions: { ecmaVersion: 2024, sourceType: 'commonjs', globals: { ...globals.node } },
     rules: {
       'no-empty-pattern': 'off', // Playwright fixtures that need no other fixture: async ({}, use)
       'no-unused-vars': ['error', { args: 'after-used', argsIgnorePattern: '^_' }],
+      // Readable names: `transaction`, `testCase`, `counter`, not `tx`, `tc`, `c`. Object keys are
+      // free (they often mirror ERPNext fields such as `qty`).
+      'id-length': ['error', { min: 3, properties: 'never', exceptions: ['id', 'fs', '_'] }],
+      'no-shadow': 'error', // a renamed variable must not hide another of the same name (docs/ai-review-log.md)
     },
   },
 
@@ -47,6 +53,8 @@ module.exports = [
       'playwright/missing-playwright-await': 'error',
       // Every check has a message, e.g. expect(qty, 'Stock is exactly 1 lower'): it is the check's title in the report.
       'playwright/valid-expect': ['error', { minArgs: 2 }],
+      // Some checks live in helpers named check… (checkSavedInvoice in tests/pos/sale-data.spec.js).
+      'playwright/expect-expect': ['warn', { assertFunctionPatterns: ['^check'] }],
       'no-restricted-syntax': ['error',
         {
           selector: "CallExpression[callee.name='require'][arguments.0.value='@playwright/test']",

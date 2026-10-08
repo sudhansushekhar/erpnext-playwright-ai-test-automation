@@ -46,11 +46,11 @@ const test = base.test.extend({
    * never an email.
    */
   users: [async ({ testData, counter, env }, use) => {
-    const person = (u) => ({ email: u.email, name: `${u.first} ${u.last}`, password: env.demoUserPassword })
+    const person = (user) => ({ email: user.email, name: `${user.first} ${user.last}`, password: env.demoUserPassword })
     await use({
       admin: { email: env.adminUser, name: 'Administrator', password: env.adminPassword },
       cashier: { ...person(counter.cashier), counter: counter.name }, // this worker's counter and its cashier
-      manager: person(testData.users.find((u) => u.role === 'Store Manager')), // Meera Nair
+      manager: person(testData.users.find((user) => user.role === 'Store Manager')), // Meera Nair
     })
   }, { scope: 'worker' }],
 

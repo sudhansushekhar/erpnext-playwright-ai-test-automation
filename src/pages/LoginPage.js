@@ -44,7 +44,7 @@ class LoginPage {
       await this.email.fill(user)
       await this.password.fill(password)
       const [response] = await Promise.all([
-        this.page.waitForResponse((r) => r.url().endsWith('/api/method/login') && r.request().method() === 'POST'),
+        this.page.waitForResponse((candidate) => candidate.url().endsWith('/api/method/login') && candidate.request().method() === 'POST'),
         this.continueButton.click(),
       ])
       await note(`The server answered the sign-in with HTTP ${response.status()}`)

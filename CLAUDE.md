@@ -19,7 +19,8 @@ This repository holds tests only.
 | `src/fixtures/` | `test`, `expect` and every fixture (table in `src/fixtures/index.js`). |
 | `src/pages/` | Page objects: one class per screen, one method per user action. **All locators live here.** |
 | `src/api/` | `FrappeClient` (REST: read back records by name) and `Shifts` (open/close POS billing counters). |
-| `src/utils/` | Pure helpers specs may import (money, invoice reading). |
+| `src/utils/` | Helpers specs may import: money, invoice reading, the test data reader and report, shared read-back checks (`saleHelpers.js`). No screen steps. |
+| `testdata/<module>/` | Data-driven test data (Excel / JSON), read by the generic `src/utils/dataReader.js`: every column, no per-module code. Each test names its file, sheet and Test Case ID. |
 | `src/seed/` | `data.js`: every test value. `seed.js`: builds it before each run. `check.js`: is the site ready? |
 | `docs/test-data.md` | Every test data value and worked totals. **Read it before writing a test.** |
 | `docs/ai-review-log.md` | Every mistake an AI made that review caught, and the rule it led to. |
@@ -42,8 +43,13 @@ agent edits (`.claude/settings.json`): a violation is sent straight back to the 
 
 1. **Start from a test case.** The test's title is the test case's exact heading (`TC-<AREA>-nnn ...`),
    and the file's first line names the test case file (`// Test case: docs/test-cases/pos-sale.md (...)`).
-   No test case, no test.
-2. **[lint] Specs import only `src/fixtures` and `src/utils`.** `test` and `expect` never come from
+   No test case, no test. **Data-driven tests**: one explicit test per data test case, titled
+   `<Test Case ID> <Title>` as in the data, reading it with `readTestData({ file, sheet, testCaseId })`
+   (sheet for Excel only); their steps and checks are a test case in `docs/test-cases/`. Data may come
+   before its test: `npm run lint` lists it. The data gives **values only**: the test calls the page
+   object's actions one by one (`addItem`, `setQty`, `payWith`...), never a generic "run the
+   transaction" helper. Shared helpers may set up through the API and read back what was saved.
+2. **[lint] Specs import only `src/fixtures` and `src/utils`** (helpers, test data readers). `test` and `expect` never come from
    `@playwright/test`; page objects, the API and the people come as fixtures.
 3. **Assert the record the server booked, by its name.** Take the name from the screen's own response
    or the URL, read it with `api.getDoc(doctype, name)`, check status, totals and links. Never assert

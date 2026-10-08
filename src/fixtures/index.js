@@ -17,6 +17,7 @@
  *             posPage        the Point of Sale screen (not signed in, nothing opened)
  *             secondDevice   a second browser: { page, loginPage, deskPage, session }
  *   pos.js    shifts         open / close shifts through the API                                 [worker]
+ *             sales          make POS sales through the API (a sale to return)                   [worker]
  *             shift          the cashier's shift, opened before the test and closed (checked) after
  *             pos            the Point of Sale, cashier signed in, shift open: ready to sell
  *             posBeforeOpening the Point of Sale before the shift is opened: the opening dialog

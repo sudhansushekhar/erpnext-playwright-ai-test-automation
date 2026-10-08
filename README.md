@@ -17,7 +17,7 @@ How to work with the AI day to day: [docs/ai-workflow.md](docs/ai-workflow.md).
 
 | | |
 |---|---|
-| **this one** | requirements, test cases, tests, test data (seed) |
+| **this one** | requirements, test cases, tests, test data (seed, and Excel / JSON for data-driven tests) |
 | [**retail_pos_india**](https://github.com/sudhansushekhar/retail_pos_india) | the app under test, and ERPNext in Docker with it |
 
 ## Setup on a new machine
@@ -67,11 +67,12 @@ page with every test value. Demo users sign in with `DEMO_USER_PASSWORD` from `.
 |---|---|
 | `npm run check` | Is the site ready for the tests? One ✅/❌ line per prerequisite; changes nothing |
 | `npm run seed` | Prepare the test data now, and repair anything changed by hand |
-| `npm run lint` | Check the rules a machine can check (no locators in specs, no waits, nothing skipped...) |
+| `npm run lint` | Check the rules a machine can check (no locators in specs, no waits, nothing skipped, readable names...), and that every test reads test data that exists |
 | `npm test` / `npm run test:smoke` | Every test on both browsers / only `@smoke` |
 | `npm run test:chromium` / `npm run test:webkit` | Every test on one browser |
 | `npm run test:headed` | Watch the tests drive the browser (Chromium, one at a time) |
 | `npx playwright test tests/pos/sale.spec.js --project=chromium` | One file in one browser |
+| `npx playwright test tests/pos/sale-data.spec.js -g TC-RET-201` | One data-driven test (by its Test Case ID) |
 | `npm run report` | The last run's report (reporting-labs); `npm run report:playwright` for Playwright's own, with traces |
 
 | Problem | Fix |
@@ -96,6 +97,53 @@ The dashboard is the reporting-labs report of the latest full run: failures rank
 the trend, new vs known failures, flaky and slower tests (the run history is kept by the CI cache).
 It is public, so it holds no traces (they record what was typed); passwords, cookies and payment
 details are masked in the report.
+
+## Data-driven tests (Excel / JSON)
+
+Testers can keep a test's **values** in Excel or JSON, in the layout they already use (one row per item
+line, merged cells allowed). The **steps** stay in the test, written out with the page objects' actions.
+
+```
+testdata/sales/
+├── SaleTestData.xlsx      sheet "Sales": TC-SALE-101, TC-RET-201 (one row per item line)
+└── SaleTestData.json      TC-SALE-102, TC-SALE-103, TC-RET-202, TC-RET-203 (same field names)
+
+src/utils/
+├── dataReader.js          readTestData({ file, sheet, testCaseId }): reads any .xlsx / .json, every column
+├── testDataReport.js      reportTestData(): which file and row a test used, in the report
+└── saleHelpers.js         itemOf(), keptAndReturned(), checkSavedInvoice(): no screen steps
+
+tests/pos/sale-data.spec.js    one test per test case, each naming its data
+docs/test-cases/sale-data.md   the steps and checks of each of them
+scripts/check-testdata.js      part of npm run lint (see below)
+```
+
+```js
+test('TC-SALE-102 two of one item, paid by UPI', { tag: ['@nightly'] }, async ({ pos, api, testData }) => {
+  const testCase = readTestData({ file: JSON_FILE, testCaseId: 'TC-SALE-102' })  // Excel: { file, sheet, testCaseId }
+  await reportTestData(testCase, testData)
+  const [sale] = testCase.transactions
+  const [line] = sale.lines
+
+  // Add the item and set its quantity
+  await pos.addItem(itemOf(line))
+  await pos.setQty(itemOf(line), line.qty)
+  ...
+})
+```
+
+- **One reader for every module.** A header becomes a camelCase key ("Item Code" → `itemCode`); a new column
+  is in the data at once, with no per-module code. Card numbers, expiry dates, CVVs and passwords are refused.
+- **The test names its data**, and fails with a clear message if the file, sheet or Test Case ID is not
+  there, or if the data's title differs from the test's.
+- **Data before its test is fine:** `npm run lint` lists test cases that have data but no test yet, and fails
+  only when a test reads a Test Case ID that no file has.
+- **Returns, three ways:** TC-RET-201 sale through the API + return on screen; TC-RET-202 both on screen
+  (`test.slow()`); TC-RET-203 both through the API.
+- **The items must exist:** test data holds expected values, not records; an item a row uses comes from the
+  seed (QA-DATA-001 is the data tests' own stock item).
+
+Layout, every column and the JSON shape: [`docs/test-data.md`](docs/test-data.md#sales-and-returns-from-test-data-excel--json).
 
 ## What the seed prepares
 
@@ -124,4 +172,5 @@ Tests never depend on anything clicked by hand: whatever they need is created by
 | **Mutation check** | Break a test on purpose to prove it can fail. A test that cannot fail proves nothing. |
 | **Lint** | A program that reads the code and reports rule breaks before anything runs. |
 | **Hook** | A command Claude Code runs automatically after each file the AI edits: here, the lint. |
+| **Data-driven test (DDT)** | A test whose values come from a file (Excel or JSON in `testdata/`); its steps are still written in the test. |
 | **@smoke / @nightly** | Tags: `@smoke` tests are quick and run on every change; `@nightly` tests run once a day. |

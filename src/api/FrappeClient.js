@@ -88,7 +88,7 @@ class FrappeClient {
         filters: [['voucher_no', '=', voucherNo], ['is_cancelled', '=', 0]],
         fields: ['item_code', 'warehouse', 'actual_qty'],
       })
-      await note(`Stock moved by ${voucherNo}: ${moves.map((m) => `${m.actual_qty} × ${m.item_code} (${m.warehouse})`).join(', ') || 'nothing'}`)
+      await note(`Stock moved by ${voucherNo}: ${moves.map((move) => `${move.actual_qty} × ${move.item_code} (${move.warehouse})`).join(', ') || 'nothing'}`)
       return moves
     })
   }
@@ -143,12 +143,12 @@ class FrappeClient {
    */
   async serverNow(timeZone) {
     const res = await this.ctx.get('/api/method/ping')
-    const at = new Date(res.headers()['date'])
+    const serverTime = new Date(res.headers()['date'])
     const parts = Object.fromEntries(
       new Intl.DateTimeFormat('en-GB', {
         timeZone, year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit', second: '2-digit', hourCycle: 'h23',
-      }).formatToParts(at).map((p) => [p.type, p.value]),
+      }).formatToParts(serverTime).map((part) => [part.type, part.value]),
     )
     return `${parts.year}-${parts.month}-${parts.day} ${parts.hour}:${parts.minute}:${parts.second}`
   }

@@ -78,6 +78,48 @@ class PosPage {
     return this.cartTotals.getByText(label, { exact: true }).locator('xpath=following-sibling::*[1]').describe(`Cart ${label}`)
   }
 
+  /** An item's line in the cart (the sale's, or a return's). CSS: cart lines have no accessible role. */
+  cartLine(item) {
+    return this.page.locator('.cart-item-wrapper').filter({ has: this.page.getByText(item.name, { exact: true }) }).describe(`Cart line "${item.name}"`)
+  }
+
+  /**
+   * The line's total as shown, e.g. "₹ 236.00" for 2 × ₹118. Check it as an element.
+   * CSS: ERPNext names the line total "item-rate" (and the unit rate "item-amount").
+   */
+  cartLineTotal(item) {
+    return this.cartLine(item).locator('.item-rate').describe(`Line total of "${item.name}"`)
+  }
+
+  /** CSS: the line's details panel (quantity, rate, discount) has fields with no accessible name. */
+  get lineDetails() {
+    return this.page.locator('.item-details-container').describe('Line details')
+  }
+
+  /** Change an item's quantity in the cart, through its line's details (−1 on a return returns one). */
+  async setQty(item, qty) {
+    await step(`Set the quantity of ${item.name} to ${qty}`, async () => {
+      await this.cartLine(item).click()
+      const box = this.lineDetails.locator('[data-fieldname="qty"] input').describe('Quantity box')
+      await box.fill(String(qty))
+      await box.press('Tab')
+      // CSS: the line's quantity ("2 Nos", "-1 Nos") has no accessible name.
+      await this.cartLine(item).locator('.item-qty').filter({ hasText: new RegExp(`^\\s*${String(qty).replace('-', '\\-')}\\s`) })
+        .describe(`Quantity ${qty} on the line`).waitFor()
+      await this.lineDetails.locator('.close-btn').describe('Close (line details)').click()
+    })
+  }
+
+  /** Take an item off the cart (e.g. an item not returned): its line, then Remove. */
+  async removeLine(item) {
+    await step(`Remove ${item.name} from the cart`, async () => {
+      await this.cartLine(item).click()
+      // Quantity 0 does not remove a line (ERPNext even errors for a service item); Remove does.
+      await this.page.getByText('Remove', { exact: true }).filter({ visible: true }).describe('Remove key').click()
+      await this.cartLine(item).waitFor({ state: 'detached' })
+    })
+  }
+
   /** Go to payment; waits until ERPNext has selected the default payment mode (Cash). */
   async checkout() {
     await step('Checkout', async () => {
@@ -107,11 +149,11 @@ class PosPage {
 
   /** Type on the payment number pad, e.g. "118", "12.5"; "D" is the Delete key. */
   async typeAmount(keys) {
-    const shown = [...keys].map((k) => (k === 'D' ? 'Delete' : k)).join(' ')
+    const shown = [...keys].map((key) => (key === 'D' ? 'Delete' : key)).join(' ')
     await step(`Type ${shown} on the number pad`, async () => {
-      for (const k of keys) {
-        const value = k === 'D' ? 'delete' : k
-        await this.numpadKeys.and(this.page.locator(`[data-button-value="${value}"]`)).describe(`Key ${k === 'D' ? 'Delete' : k}`).click()
+      for (const key of keys) {
+        const value = key === 'D' ? 'delete' : key
+        await this.numpadKeys.and(this.page.locator(`[data-button-value="${value}"]`)).describe(`Key ${key === 'D' ? 'Delete' : key}`).click()
       }
     })
   }
@@ -120,7 +162,7 @@ class PosPage {
   async selectMode(mode) {
     await step(`Select ${mode}`, async () => {
       // CSS: ERPNext marks the selected tile with a class only.
-      if (await this.tile(mode).evaluate((el) => el.classList.contains('border-primary'))) {
+      if (await this.tile(mode).evaluate((element) => element.classList.contains('border-primary'))) {
         await note(`${mode} was already selected`)
       } else {
         await this.tapMode(mode)
@@ -169,7 +211,7 @@ class PosPage {
   async completeOrder() {
     return step('Complete the order', async () => {
       const submit = this.page.waitForResponse(
-        (r) => r.url().includes('/api/method/frappe.desk.form.save.savedocs') && (r.request().postData() || '').includes('action=Submit'),
+        (response) => response.url().includes('/api/method/frappe.desk.form.save.savedocs') && (response.request().postData() || '').includes('action=Submit'),
       )
       await this.completeOrderButton.click()
       await this.page.getByRole('button', { name: 'Yes' }).describe('Yes (Permanently Submit?)').click()
@@ -179,6 +221,51 @@ class PosPage {
         ? `Sales Invoice ${doc.name} submitted`
         : `Sales Invoice ${doc.name} refused by the server (HTTP ${res.status()})`)
       return { name: doc.name, accepted: res.ok() }
+    })
+  }
+
+  // ── After a sale, and returns ──────────────────────────────────────────────────────────
+
+  /**
+   * The next customer: "New Order" on the summary shown after a sale. (The top bar's "New Invoice"
+   * does nothing in that state, and Recent Orders would hide the past order's summary.)
+   */
+  async newOrder() {
+    await step('New order (the next customer)', async () => {
+      await this.page.getByText('New Order', { exact: true }).filter({ visible: true }).describe('New Order button').click()
+      await this.search.waitFor()
+    })
+  }
+
+  /** Open a past sale from Recent Orders: status Paid, search its name, open it. */
+  async openPastOrder(name) {
+    await step(`Open past order ${name} (Recent Orders)`, async () => {
+      await this.page.getByRole('button', { name: 'Recent Orders' }).describe('Recent Orders button').click()
+      await this.page.getByRole('combobox').filter({ has: this.page.getByRole('option', { name: 'Paid' }) })
+        .describe('Order status').selectOption('Paid')
+      // Every refresh of the list resets the opened order's summary, so wait for the list's answer
+      // to this search before opening the order (clicking during an earlier refresh was undone).
+      const searched = this.page.waitForResponse((response) => response.url().includes('get_past_order_list') &&
+        decodeURIComponent((response.request().postData() || '') + response.url()).includes(name))
+      await this.page.getByRole('textbox', { name: 'Search by invoice id or customer name' }).describe('Order search').fill(name)
+      await searched
+      // CSS: an order row has no accessible name; data-invoice-name is ERPNext's own key for it.
+      // (Its text also appears in the "created" toast, so text would match the toast too.)
+      await this.page.locator(`.invoice-wrapper[data-invoice-name="${name}"]`).describe(`Order ${name}`).click()
+      await this.returnButton.waitFor()
+    })
+  }
+
+  /** CSS: the order summary's Return has no accessible role; .return-btn is ERPNext's own class. */
+  get returnButton() {
+    return this.page.locator('.return-btn').filter({ visible: true }).describe('Return button')
+  }
+
+  /** Return the open past order: the cart fills with its lines, as negative quantities. */
+  async startReturn() {
+    await step('Start a return of the order', async () => {
+      await this.returnButton.click()
+      await this.checkoutButton.waitFor()
     })
   }
 
@@ -218,7 +305,7 @@ class PosPage {
   async openingRows() {
     // CSS: grid rows have no accessible role in ERPNext's dialog table.
     const rows = this.openingDialog.locator('.grid-body .grid-row').describe('Opening balance rows')
-    return (await rows.allInnerTexts()).map((t) => t.replace(/\s+/g, ' ').trim())
+    return (await rows.allInnerTexts()).map((text) => text.replace(/\s+/g, ' ').trim())
   }
 }
 

@@ -13,8 +13,8 @@ const GST_SLABS = [0, 5, 18]
 const gstTemplate = (rate) => `GST ${rate}% - ${ABBR}`
 
 // A stock item at 18% GST included: 118.00 = 100.00 + CGST 9.00 + SGST 9.00. One per billing counter (below).
-const stockItem = (n) => ({
-  code: `QA-STOCK-00${n}`, name: n === 1 ? 'QA Stock Item' : `QA Stock Item ${n}`, group: 'Products', uom: 'Nos',
+const stockItem = (number) => ({
+  code: `QA-STOCK-00${number}`, name: number === 1 ? 'QA Stock Item' : `QA Stock Item ${number}`, group: 'Products', uom: 'Nos',
   buyingPrice: 60, sellingPrice: 118, gst: 18,
   stockQty: 50, // the seed tops stock back up to this before every run
 })
@@ -30,7 +30,7 @@ const BILLING_COUNTERS = [
   { name: 'Billing Counter 2', cashier: { email: 'rohit.kumar@qa-retail.test', first: 'Rohit', last: 'Kumar' }, item: stockItem(2) },
   { name: 'Billing Counter 3', cashier: { email: 'kavya.menon@qa-retail.test', first: 'Kavya', last: 'Menon' }, item: stockItem(3) },
   { name: 'Billing Counter 4', cashier: { email: 'farhan.ali@qa-retail.test', first: 'Farhan', last: 'Ali' }, item: stockItem(4) },
-].map((counter, i) => ({ number: i + 1, ...counter }))
+].map((counter, index) => ({ number: index + 1, ...counter }))
 
 const TEST_DATA = {
   company: 'QA Retail',
@@ -55,6 +55,9 @@ const TEST_DATA = {
     stock: BILLING_COUNTERS[0].item,
     // Service, 18% GST included: 59.00 = 50.00 + 4.50 + 4.50. No stock.
     service: { code: 'QA-ITEM-001', name: 'QA Service Item', group: 'Services', uom: 'Nos', sellingPrice: 59, gst: 18 },
+    // The data-driven tests' stock item (testdata/sales): 118.00 = 100.00 + CGST 9.00 + SGST 9.00, like
+    // QA-STOCK-001. Data tests never sell a billing counter's own item, whose stock its tests count exactly.
+    data: { code: 'QA-DATA-001', name: 'QA Data Item', group: 'Products', uom: 'Nos', buyingPrice: 60, sellingPrice: 118, gst: 18, stockQty: 100 },
     // No GST; carries its own 5% eco fee (the item surcharge). No stock.
     eco: { code: 'QA-ECO-001', name: 'QA Eco Item', group: 'Products', uom: 'Nos', sellingPrice: 40 },
   },
@@ -111,7 +114,7 @@ const TEST_DATA = {
   // Demo users on the reserved .test domain (it can never be a real address). All share one
   // password: DEMO_USER_PASSWORD in .env. All may use the QA POS profile.
   users: [
-    ...BILLING_COUNTERS.map((c) => ({ ...c.cashier, role: 'Cashier' })), // one cashier per billing counter
+    ...BILLING_COUNTERS.map((counter) => ({ ...counter.cashier, role: 'Cashier' })), // one cashier per billing counter
     { email: 'meera.nair@qa-retail.test', first: 'Meera', last: 'Nair', role: 'Store Manager' },
     { email: 'vikram.singh@qa-retail.test', first: 'Vikram', last: 'Singh', role: 'Admin' },
     // Not a person: the tests' own API user (the `api` fixture), with the Admin roles. Tests do not

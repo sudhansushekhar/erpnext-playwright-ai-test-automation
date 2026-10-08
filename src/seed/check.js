@@ -7,12 +7,12 @@
 const { request } = require('@playwright/test')
 const { FrappeClient } = require('../api/FrappeClient')
 const { ENV } = require('../../config/env')
-const { TEST_DATA: d } = require('./data')
+const { TEST_DATA: testData } = require('./data')
 
 const results = []
-const check = async (label, fn) => {
+const check = async (label, run) => {
   try {
-    const detail = await fn()
+    const detail = await run()
     results.push({ ok: true, label, detail })
   } catch (err) {
     results.push({ ok: false, label, detail: err.message })
@@ -46,9 +46,9 @@ async function main() {
 
   try {
     await check('Company, India settings', async () => {
-      const company = await api.findDoc('Company', d.company)
-      expect(company, `company ${d.company} missing (setup wizard not run)`)
-      expect(company.default_currency === d.currency && company.country === d.country, `${d.company} is ${company.country}/${company.default_currency}, expected ${d.country}/${d.currency}: rebuild it from the retail_pos_india folder: npm run erp:reset`)
+      const company = await api.findDoc('Company', testData.company)
+      expect(company, `company ${testData.company} missing (setup wizard not run)`)
+      expect(company.default_currency === testData.currency && company.country === testData.country, `${testData.company} is ${company.country}/${company.default_currency}, expected ${testData.country}/${testData.currency}: rebuild it from the retail_pos_india folder: npm run erp:reset`)
       const today = new Date().toISOString().slice(0, 10)
       const years = await api.getList('Fiscal Year', {
         filters: [['year_start_date', '<=', today], ['year_end_date', '>=', today]],
@@ -57,23 +57,23 @@ async function main() {
       })
       expect(years.length, `no fiscal year covers today (${today})`)
       const sys = await api.getDoc('System Settings', 'System Settings')
-      return `${d.company}, ${company.country}, ${company.default_currency}, FY ${years[0].name} (from ${years[0].year_start_date}), ${sys.time_zone}, numbers ${sys.number_format}, dates ${sys.date_format}`
+      return `${testData.company}, ${company.country}, ${company.default_currency}, FY ${years[0].name} (from ${years[0].year_start_date}), ${sys.time_zone}, numbers ${sys.number_format}, dates ${sys.date_format}`
     })
 
     await check('Customers and suppliers', async () => {
-      const customers = [d.customer, ...d.demo.customers]
-      const suppliers = [d.supplier, ...d.demo.suppliers]
-      for (const c of customers) expect(await api.findDoc('Customer', c.name), `customer ${c.name} missing`)
-      for (const s of suppliers) expect(await api.findDoc('Supplier', s.name), `supplier ${s.name} missing`)
+      const customers = [testData.customer, ...testData.demo.customers]
+      const suppliers = [testData.supplier, ...testData.demo.suppliers]
+      for (const customer of customers) expect(await api.findDoc('Customer', customer.name), `customer ${customer.name} missing`)
+      for (const supplier of suppliers) expect(await api.findDoc('Supplier', supplier.name), `supplier ${supplier.name} missing`)
       return `${customers.length} customers, ${suppliers.length} suppliers`
     })
 
     await check('Items, prices and GST slabs', async () => {
-      const items = [...Object.values(d.items), ...d.billingCounters.slice(1).map((c) => c.item), ...d.demo.items] // counter 1's item is items.stock
+      const items = [...Object.values(testData.items), ...testData.billingCounters.slice(1).map((counter) => counter.item), ...testData.demo.items] // counter 1's item is items.stock
       for (const item of items) {
         const doc = await api.findDoc('Item', item.code)
         expect(doc, `item ${item.code} missing`)
-        const prices = [[d.sellingPriceList, item.sellingPrice], [d.buyingPriceList, item.buyingPrice]]
+        const prices = [[testData.sellingPriceList, item.sellingPrice], [testData.buyingPriceList, item.buyingPrice]]
         for (const [list, want] of prices) {
           if (want === undefined) continue
           const [row] = await api.getList('Item Price', {
@@ -84,19 +84,19 @@ async function main() {
           expect(row && row.price_list_rate === want, `${item.code} ${list} is ${row ? row.price_list_rate : 'missing'}, expected ${want}`)
         }
         if (item.gst !== undefined) {
-          const want = d.gst.slabs[item.gst]
-          expect((doc.taxes || []).some((t) => t.item_tax_template === want), `${item.code} is not on ${want}`)
+          const want = testData.gst.slabs[item.gst]
+          expect((doc.taxes || []).some((itemTax) => itemTax.item_tax_template === want), `${item.code} is not on ${want}`)
         }
       }
-      const s = d.items.stock
-      return `${items.length} items · e.g. ${s.code} buy ${s.buyingPrice} / sell ${s.sellingPrice} incl. ${s.gst}% GST`
+      const stock = testData.items.stock
+      return `${items.length} items · e.g. ${stock.code} buy ${stock.buyingPrice} / sell ${stock.sellingPrice} incl. ${stock.gst}% GST`
     })
 
     await check('Stock on hand', async () => {
       const short = []
-      for (const item of [...d.billingCounters.map((c) => c.item), ...d.demo.items]) {
+      for (const item of [...testData.billingCounters.map((counter) => counter.item), testData.items.data, ...testData.demo.items]) {
         const [bin] = await api.getList('Bin', {
-          filters: [['item_code', '=', item.code], ['warehouse', '=', d.warehouse]],
+          filters: [['item_code', '=', item.code], ['warehouse', '=', testData.warehouse]],
           fields: ['actual_qty'],
           limit: 1,
         })
@@ -104,107 +104,107 @@ async function main() {
         if (qty < item.stockQty) short.push(`${item.code} has ${qty}, expected ${item.stockQty}`)
       }
       expect(!short.length, short.join('; '))
-      return `${d.billingCounters.map((c) => c.item.code).join(', ')}: ${d.items.stock.stockQty} each, and every demo item topped up, in ${d.warehouse}`
+      return `${testData.billingCounters.map((counter) => counter.item.code).join(', ')}: ${testData.items.stock.stockQty} each, and every demo item topped up, in ${testData.warehouse}`
     })
 
     await check('GST', async () => {
-      for (const t of Object.values(d.gst.slabs)) expect(await api.findDoc('Item Tax Template', t), `item tax template ${t} missing`)
-      const tpl = await api.findDoc('Sales Taxes and Charges Template', d.gst.template)
-      expect(tpl, `template ${d.gst.template} missing`)
-      expect((tpl.taxes || []).every((t) => t.included_in_print_rate), 'GST lines are not included in the price')
-      const defaults = await api.getList('Sales Taxes and Charges Template', { filters: [['company', '=', d.company], ['is_default', '=', 1]] })
-      expect(defaults.length === 1 && defaults[0].name === d.gst.template, `default template(s): ${defaults.map((t) => t.name).join(', ') || 'none'}, expected only ${d.gst.template}`)
-      return `${d.gst.template} (CGST + SGST, included in prices) is the only default · slabs ${Object.keys(d.gst.slabs).join('%, ')}%`
+      for (const template of Object.values(testData.gst.slabs)) expect(await api.findDoc('Item Tax Template', template), `item tax template ${template} missing`)
+      const tpl = await api.findDoc('Sales Taxes and Charges Template', testData.gst.template)
+      expect(tpl, `template ${testData.gst.template} missing`)
+      expect((tpl.taxes || []).every((line) => line.included_in_print_rate), 'GST lines are not included in the price')
+      const defaults = await api.getList('Sales Taxes and Charges Template', { filters: [['company', '=', testData.company], ['is_default', '=', 1]] })
+      expect(defaults.length === 1 && defaults[0].name === testData.gst.template, `default template(s): ${defaults.map((template) => template.name).join(', ') || 'none'}, expected only ${testData.gst.template}`)
+      return `${testData.gst.template} (CGST + SGST, included in prices) is the only default · slabs ${Object.keys(testData.gst.slabs).join('%, ')}%`
     })
 
     await check('Retail POS India app installed', async () => {
       const apps = await api.getDoc('Installed Applications', 'Installed Applications')
-      const row = (apps.installed_applications || []).find((a) => a.app_name === 'retail_pos_india')
+      const row = (apps.installed_applications || []).find((app) => app.app_name === 'retail_pos_india')
       expect(row, 'not installed: from the retail_pos_india folder run npm run erp:app')
       const settings = await api.getDoc('POS Settings', 'POS Settings')
-      const shown = (settings.invoice_fields || []).map((f) => f.fieldname)
-      for (const f of ['rpi_card_type', 'rpi_card_last4', 'rpi_card_approval_code', 'rpi_upi_reference']) {
-        expect(shown.includes(f), `${f} missing from the POS payment screen: from the retail_pos_india folder run npm run erp:app`)
+      const shown = (settings.invoice_fields || []).map((field) => field.fieldname)
+      for (const field of ['rpi_card_type', 'rpi_card_last4', 'rpi_card_approval_code', 'rpi_upi_reference']) {
+        expect(shown.includes(field), `${field} missing from the POS payment screen: from the retail_pos_india folder run npm run erp:app`)
       }
       return `v${row.app_version}: number pad, card and UPI fields on the payment screen, wider cart`
     })
 
     await check('Surcharges', async () => {
-      const templates = [d.surcharges.sale.template, d.surcharges.item.template]
-      for (const t of templates) expect(await api.findDoc('Sales Taxes and Charges Template', t), `template ${t} missing`)
-      const eco = await api.getDoc('Item', d.items.eco.code)
-      expect((eco.taxes || []).some((r) => r.item_tax_template === d.surcharges.item.itemTaxTemplate), `${d.items.eco.code} does not carry its eco fee`)
+      const templates = [testData.surcharges.sale.template, testData.surcharges.item.template]
+      for (const template of templates) expect(await api.findDoc('Sales Taxes and Charges Template', template), `template ${template} missing`)
+      const eco = await api.getDoc('Item', testData.items.eco.code)
+      expect((eco.taxes || []).some((itemTax) => itemTax.item_tax_template === testData.surcharges.item.itemTaxTemplate), `${testData.items.eco.code} does not carry its eco fee`)
       return templates.join(' · ')
     })
 
     await check('Demo users and roles', async () => {
       const lines = []
-      for (const u of d.users) {
-        const doc = await api.findDoc('User', u.email)
-        expect(doc && doc.enabled, `${u.email} missing or disabled`)
-        const has = (doc.roles || []).map((r) => r.role)
-        const missing = d.roles[u.role].filter((r) => !has.includes(r))
-        expect(!missing.length, `${u.email} lacks ${missing.join(', ')}`)
-        lines.push(`${u.first} (${u.role})`)
+      for (const user of testData.users) {
+        const doc = await api.findDoc('User', user.email)
+        expect(doc && doc.enabled, `${user.email} missing or disabled`)
+        const has = (doc.roles || []).map((userRole) => userRole.role)
+        const missing = testData.roles[user.role].filter((role) => !has.includes(role))
+        expect(!missing.length, `${user.email} lacks ${missing.join(', ')}`)
+        lines.push(`${user.first} (${user.role})`)
       }
       return lines.join(', ')
     })
 
     await check('Payment modes have accounts', async () => {
       const lines = []
-      for (const { mode, account } of d.paymentModes) {
+      for (const { mode, account } of testData.paymentModes) {
         const doc = await api.getDoc('Mode of Payment', mode)
-        const row = (doc.accounts || []).find((r) => r.company === d.company)
-        expect(row && row.default_account === account, `${mode} has no account for ${d.company} (POS will refuse it)`)
+        const row = (doc.accounts || []).find((accountRow) => accountRow.company === testData.company)
+        expect(row && row.default_account === account, `${mode} has no account for ${testData.company} (POS will refuse it)`)
         lines.push(`${mode} → ${account}`)
       }
       return lines.join(' · ')
     })
 
-    await check(`POS Profile ${d.posProfile.name}`, async () => {
-      const p = await api.findDoc('POS Profile', d.posProfile.name)
-      expect(p, 'missing')
-      expect(!p.disabled, 'disabled')
-      expect(p.warehouse === d.warehouse, `warehouse is ${p.warehouse}`)
-      expect((p.applicable_for_users || []).some((u) => u.user === ENV.adminUser), `${ENV.adminUser} may not use it`)
-      expect((p.payments || []).filter((r) => r.default).length === 1, 'needs exactly one default payment mode')
-      expect(p.taxes_and_charges === d.gst.template, `charges ${p.taxes_and_charges || 'no tax'}, expected ${d.gst.template}`)
+    await check(`POS Profile ${testData.posProfile.name}`, async () => {
+      const profile = await api.findDoc('POS Profile', testData.posProfile.name)
+      expect(profile, 'missing')
+      expect(!profile.disabled, 'disabled')
+      expect(profile.warehouse === testData.warehouse, `warehouse is ${profile.warehouse}`)
+      expect((profile.applicable_for_users || []).some((allowed) => allowed.user === ENV.adminUser), `${ENV.adminUser} may not use it`)
+      expect((profile.payments || []).filter((payment) => payment.default).length === 1, 'needs exactly one default payment mode')
+      expect(profile.taxes_and_charges === testData.gst.template, `charges ${profile.taxes_and_charges || 'no tax'}, expected ${testData.gst.template}`)
       // QA POS is for Administrator, the manager and the admin; cashiers have their own counters.
-      for (const u of d.users.filter((x) => x.role !== 'Cashier')) expect((p.applicable_for_users || []).some((x) => x.user === u.email), `${u.email} may not use it`)
+      for (const user of testData.users.filter((allowed) => allowed.role !== 'Cashier')) expect((profile.applicable_for_users || []).some((allowed) => allowed.user === user.email), `${user.email} may not use it`)
       const offered = await api.call('frappe.desk.search.search_link', {
         doctype: 'POS Profile',
         txt: '',
         query: 'erpnext.accounts.doctype.pos_profile.pos_profile.pos_profile_query',
-        filters: JSON.stringify({ company: d.company }),
+        filters: JSON.stringify({ company: testData.company }),
       })
-      expect(offered.some((o) => o.value === d.posProfile.name), 'not offered on the POS screen')
-      return `${p.warehouse}, ${p.selling_price_list}, ${p.customer}, pays ${p.payments.map((r) => r.mode_of_payment + (r.default ? ' (default)' : '')).join(', ')}`
+      expect(offered.some((option) => option.value === testData.posProfile.name), 'not offered on the POS screen')
+      return `${profile.warehouse}, ${profile.selling_price_list}, ${profile.customer}, pays ${profile.payments.map((payment) => payment.mode_of_payment + (payment.default ? ' (default)' : '')).join(', ')}`
     })
 
     await check('Billing counters for the cashiers', async () => {
       const lines = []
-      for (const t of d.billingCounters.map((c) => ({ name: c.name, users: [c.cashier.email] }))) {
-        const p = await api.findDoc('POS Profile', t.name)
-        expect(p && !p.disabled, `${t.name} missing or disabled`)
-        for (const u of t.users) expect((p.applicable_for_users || []).some((x) => x.user === u && x.default), `${u} is not on ${t.name}`)
-        lines.push(`${t.name}: ${t.users.map((u) => u.split('@')[0]).join(', ')}`)
+      for (const billingCounter of testData.billingCounters.map((counter) => ({ name: counter.name, users: [counter.cashier.email] }))) {
+        const profile = await api.findDoc('POS Profile', billingCounter.name)
+        expect(profile && !profile.disabled, `${billingCounter.name} missing or disabled`)
+        for (const user of billingCounter.users) expect((profile.applicable_for_users || []).some((allowed) => allowed.user === user && allowed.default), `${user} is not on ${billingCounter.name}`)
+        lines.push(`${billingCounter.name}: ${billingCounter.users.map((email) => email.split('@')[0]).join(', ')}`)
       }
       const [rule] = await api.getList('Custom DocPerm', {
-        filters: [['parent', '=', 'POS Opening Entry'], ['role', '=', d.cashierRole.name]],
+        filters: [['parent', '=', 'POS Opening Entry'], ['role', '=', testData.cashierRole.name]],
         fields: ['if_owner', 'create', 'submit'],
         limit: 1,
       })
-      expect(rule && rule.create && rule.submit && rule.if_owner, `role ${d.cashierRole.name} cannot open its own POS session`)
+      expect(rule && rule.create && rule.submit && rule.if_owner, `role ${testData.cashierRole.name} cannot open its own POS session`)
       return `${lines.join(' · ')} · Cashier role opens/closes own sessions only`
     })
 
     await check('QA Testing page and landing page', async () => {
-      expect(await api.findDoc('Workspace', d.qaPage), `page ${d.qaPage} missing`)
-      const [sidebar] = await api.getList('Custom Sidebar', { filters: [['module', '=', d.qaPage], ['user', 'is', 'not set']], limit: 1 })
+      expect(await api.findDoc('Workspace', testData.qaPage), `page ${testData.qaPage} missing`)
+      const [sidebar] = await api.getList('Custom Sidebar', { filters: [['module', '=', testData.qaPage], ['user', 'is', 'not set']], limit: 1 })
       expect(sidebar, 'its sidebar is missing')
       const user = await api.getDoc('User', ENV.adminUser)
-      expect(user.default_workspace === d.landingWorkspace, `${ENV.adminUser} lands on ${user.default_workspace || 'the app launcher'}`)
-      return `${ENV.adminUser} lands on ${d.landingWorkspace} (${ENV.baseUrl}/desk/qa-testing)`
+      expect(user.default_workspace === testData.landingWorkspace, `${ENV.adminUser} lands on ${user.default_workspace || 'the app launcher'}`)
+      return `${ENV.adminUser} lands on ${testData.landingWorkspace} (${ENV.baseUrl}/desk/qa-testing)`
     })
 
     // Information, not a failure: an open POS session is normal while testing by hand.
@@ -218,7 +218,7 @@ async function main() {
       info: true,
       label: 'Open POS sessions',
       detail: open.length
-        ? open.map((o) => `${o.name} (${o.user}, ${o.pos_profile}, since ${o.period_start_date})`).join(' · ')
+        ? open.map((entry) => `${entry.name} (${entry.user}, ${entry.pos_profile}, since ${entry.period_start_date})`).join(' · ')
         : 'none: the POS screen will ask you to open one (pick QA POS, enter the opening cash)',
     })
   } finally {
@@ -229,8 +229,8 @@ async function main() {
 main()
   .catch((err) => results.push({ ok: false, label: 'Check', detail: err.message }))
   .finally(() => {
-    for (const r of results) console.log(`${r.info ? 'ℹ️ ' : r.ok ? '✅' : '❌'} ${r.label}: ${r.detail}`)
-    const failed = results.filter((r) => !r.ok).length
+    for (const result of results) console.log(`${result.info ? 'ℹ️ ' : result.ok ? '✅' : '❌'} ${result.label}: ${result.detail}`)
+    const failed = results.filter((result) => !result.ok).length
     console.log(failed ? `\n${failed} not ready. Run: npm run seed` : '\nReady to test.')
     process.exitCode = failed ? 1 : 0
   })

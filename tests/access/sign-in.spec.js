@@ -19,7 +19,7 @@ test('TC-SIGNIN-001 a wrong password is refused and starts no session', { tag: [
   await expect(loginPage.page, 'Still on the sign-in screen').toHaveURL(/\/login$/)
   // ...and this browser holds no signed-in session: the server set it to Guest,
   // and refuses a request that needs a signed-in user.
-  const cookies = Object.fromEntries((await context.cookies()).map((c) => [c.name, c.value]))
+  const cookies = Object.fromEntries((await context.cookies()).map((cookie) => [cookie.name, cookie.value]))
   expect.soft(cookies.user_id, "The browser's session is Guest").toBe('Guest')
   expect.soft(await session.sessionUser(), 'The server sees nobody signed in').toBeNull()
 })
