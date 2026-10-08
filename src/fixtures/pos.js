@@ -8,6 +8,7 @@
 const { expect } = require('@playwright/test')
 const { test: pages } = require('./pages')
 const { Shifts } = require('../api/shifts')
+const { note } = require('../report')
 
 const test = pages.extend({
   /** Open and close shifts through the API. */
@@ -25,12 +26,18 @@ const test = pages.extend({
    * its last step.
    */
   shift: async ({ shifts, users }, use) => {
+    // ── BEFORE the test ─────────────────────────────
     const { email, counter } = users.cashier
     await shifts.closeAllOf(email) // left open by a run that crashed
     const opening = await shifts.open({ counter, user: email })
+    await note(`Shift ${opening} opened for ${email} at ${counter}`)
+
     await use({ counter, cashier: email, opening })
-    await shifts.close(opening)
+
+    // ── AFTER the test (even if it failed) ──────────
+    const closing = await shifts.close(opening)
     expect(await shifts.status(opening), `shift ${opening}`).toBe('Closed')
+    await note(`Shift ${opening} closed (${closing})`)
   },
 
   /** The Point of Sale: the cashier signed in, her shift open, ready to sell. */

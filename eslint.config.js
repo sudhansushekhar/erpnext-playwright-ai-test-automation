@@ -6,6 +6,7 @@
  *              rule 4  no locators in specs (they live in src/pages)
  *              rule 6  no page.waitForTimeout
  *              rule 9  no .only / .skip / .fixme / .fail
+ *              rule 4  every expect has a message (its title in the report)
  *   src/**     rule 6  no page.waitForTimeout either
  */
 const js = require('@eslint/js')
@@ -44,6 +45,8 @@ module.exports = [
       'playwright/no-page-pause': 'error',
       'playwright/no-force-option': 'error',
       'playwright/missing-playwright-await': 'error',
+      // Every check has a message, e.g. expect(qty, 'Stock is exactly 1 lower'): it is the check's title in the report.
+      'playwright/valid-expect': ['error', { minArgs: 2 }],
       'no-restricted-syntax': ['error',
         {
           selector: "CallExpression[callee.name='require'][arguments.0.value='@playwright/test']",

@@ -209,6 +209,26 @@ test('TC-POS-001 a cashier sells one item for cash: GST included, booked as a PO
 })
 ```
 
+### What the report shows
+
+Page objects name every user action as a **step** and every element (`.describe()`), and note the
+values a test relies on (`src/report.js`). TC-POS-001 in the report:
+
+```
+Steps                                                     Log
+  Before Hooks (fixtures: api, counter, shift, pos ...)     Shift POS-OPE-… opened for anjali… at Billing Counter 1
+  Add 1 × QA Stock Item (QA-STOCK-001) to the cart          Stock of QA-STOCK-001 in Stores - QAR: 50
+  Read the cart totals                                      Cart totals: Net Total ₹ 100.00 · CGST ₹ 9.00 · …
+  Checkout                                                  Cash was already selected
+  Pay ₹118 by Cash  ▸ Select Cash  ▸ Type 1 1 8             Sales Invoice ACC-SINV-… submitted
+  Complete the order                                        Stock of QA-STOCK-001 in Stores - QAR: 49
+  Expect … (the checks)                                     Stock moved by ACC-SINV-…: -1 × QA-STOCK-001
+  After Hooks (the shift is closed)                         Shift POS-OPE-… closed (POS-CLO-…)
+```
+
+The element names (`Click Item card "QA Stock Item"`, `Click Key 1`) show in Playwright's own report and
+trace (`npm run report:playwright`). Steps live in the page objects, so specs stay short.
+
 Three ideas make the tests reliable:
 
 1. **Data is prepared, not clicked.** The seed and the fixtures set everything up through the API;
