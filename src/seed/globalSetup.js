@@ -1,6 +1,8 @@
-/** Playwright globalSetup: prepare the test data once before the run. */
+/** Playwright globalSetup: prepare the test data once before the run, then warm the server up. */
 const { seed } = require('./seed')
+const { warmUp } = require('./warmUp')
 
 module.exports = async () => {
-  await seed()
+  const testData = await seed()
+  await warmUp(testData)
 }
