@@ -4,7 +4,7 @@
  */
 
 /** The payment rows that took money, e.g. [{ mode: 'Cash', amount: 118 }]. A POS sale lists every
- * payment mode of the till; the unused ones are kept at 0 and left out here. */
+ * payment mode of its POS Profile; the unused ones are kept at 0 and left out here. */
 const paidRows = (invoice) =>
   invoice.payments.filter((p) => p.amount).map((p) => ({ mode: p.mode_of_payment, amount: p.amount }))
 

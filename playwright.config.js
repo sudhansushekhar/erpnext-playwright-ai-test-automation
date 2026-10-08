@@ -28,7 +28,9 @@ module.exports = defineConfig({
 
   retries: 0,
   forbidOnly: isCI,
-  fullyParallel: false,
+  // Tests spread over the workers one by one. Each worker has its own billing counter (cashier, POS Profile, stock
+  // item; src/seed/data.js), so tests running at the same time share nothing. WORKERS ≤ the counters.
+  fullyParallel: true,
   workers: Number(process.env.WORKERS) || 1,
 
   reporter: [

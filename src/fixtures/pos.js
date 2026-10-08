@@ -1,47 +1,49 @@
 /**
- * Layer 3 of the fixtures: the point of sale, with its till opened before and closed after.
+ * Layer 3 of the fixtures: the point of sale, with the cashier's shift opened before and closed after.
  *
- * A till can have one open session and a cashier one device, so the POS tests of one cashier
- * run one at a time (workers: 1). More parallel POS tests need more tills and cashiers (seed).
+ * Everything here uses this worker's billing counter (src/fixtures/base.js) and its cashier. A counter
+ * can have one open shift and a cashier one device, so each counter's tests run one at a time, and
+ * tests at different counters run in parallel.
  */
 const { expect } = require('@playwright/test')
 const { test: pages } = require('./pages')
-const { Tills } = require('../api/tills')
+const { Shifts } = require('../api/shifts')
 
 const test = pages.extend({
-  /** Open and close tills through the API (as Administrator). */
-  tills: async ({ api, testData }, use) => {
-    await use(new Tills(api, {
+  /** Open and close shifts through the API. */
+  shifts: [async ({ api, testData }, use) => {
+    await use(new Shifts(api, {
       company: testData.company,
       timeZone: testData.timezone,
       openingCash: testData.posProfile.openingCash,
     }))
-  },
+  }, { scope: 'worker' }],
 
   /**
-   * The cashier's till, open: { name, cashier, opening }. The prerequisite of every POS sale test.
-   * Afterwards, even after a failure, the till is closed and checked Closed: its last step.
+   * The cashier's shift at her billing counter, open: { counter, cashier, opening }. The prerequisite
+   * of every POS sale test. Afterwards, even after a failure, the shift is closed and checked Closed:
+   * its last step.
    */
-  till: async ({ tills, users }, use) => {
-    const { email, till } = users.cashier
-    await tills.closeAllOf(email) // left open by a run that crashed
-    const opening = await tills.open({ till, user: email })
-    await use({ name: till, cashier: email, opening })
-    await tills.close(opening)
-    expect(await tills.status(opening), `till session ${opening}`).toBe('Closed')
+  shift: async ({ shifts, users }, use) => {
+    const { email, counter } = users.cashier
+    await shifts.closeAllOf(email) // left open by a run that crashed
+    const opening = await shifts.open({ counter, user: email })
+    await use({ counter, cashier: email, opening })
+    await shifts.close(opening)
+    expect(await shifts.status(opening), `shift ${opening}`).toBe('Closed')
   },
 
-  /** The Point of Sale: the cashier signed in, their till open, ready to sell. */
-  pos: async ({ posPage, till, users }, use) => {
-    await posPage.open(till.cashier, users.cashier.password)
-    await posPage.ready()
+  /** The Point of Sale: the cashier signed in, her shift open, ready to sell. */
+  pos: async ({ posPage, shift, users, testData }, use) => {
+    await posPage.open(shift.cashier, users.cashier.password)
+    await posPage.ready(testData.posProfile.customer)
     await use(posPage)
   },
 
-  /** The Point of Sale for the second cashier, whose till is NOT open: the opening dialog. */
-  posWithoutTill: async ({ posPage, tills, users }, use) => {
-    const { email, password } = users.secondCashier
-    await tills.closeAllOf(email)
+  /** The Point of Sale before the cashier's shift is opened: the opening dialog. */
+  posBeforeOpening: async ({ posPage, shifts, users }, use) => {
+    const { email, password } = users.cashier
+    await shifts.closeAllOf(email)
     await posPage.open(email, password)
     await posPage.openingDialog.waitFor()
     await use(posPage)

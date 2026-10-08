@@ -3,15 +3,15 @@
 Product: ERPNext v16 Point of Sale with the Retail POS India app · Market: India (INR, GST)
 Status: sample PRD for practice, written from the behaviour built in this project.
 
-## 1. Opening the till
+## 1. Opening a shift
 
-### REQ-POS-001 · A cashier opens their own till
-A user with the Cashier role can open a POS session (POS Opening Entry) on their own till
+### REQ-POS-001 · A cashier opens a shift at their own billing counter
+A user with the Cashier role can open a POS session (POS Opening Entry) on their own billing counter
 (POS profile). They cannot open, close or see another cashier's session.
 
-### REQ-POS-002 · One open session per till
-A till can have only one open session. A second attempt is refused with the message
-"<till> is open. Close the POS or cancel the existing POS Opening Entry to create a new POS Opening Entry."
+### REQ-POS-002 · One open session per billing counter
+A billing counter can have only one open session. A second attempt is refused with the message
+"<billing counter> is open. Close the POS or cancel the existing POS Opening Entry to create a new POS Opening Entry."
 
 ### REQ-POS-003 · The opening float is cash only
 The opening dialog lists only the Cash payment mode, with an opening amount. It shows no row
@@ -34,7 +34,7 @@ A discount on the whole sale is applied on the net total, so GST is charged on t
 value: 2 × ₹118.00 with 10% off gives net ₹180.00, CGST ₹16.20, SGST ₹16.20, grand total ₹212.40.
 
 ### REQ-POS-008 · Stock goes down with each sale
-A POS sale of a stock item reduces its stock in the till's warehouse by the quantity sold.
+A POS sale of a stock item reduces its stock in the billing counter's warehouse by the quantity sold.
 
 ## 3. Paying
 
@@ -66,20 +66,20 @@ The last-4 field accepts exactly 4 digits. A full card number in any card field 
 A completed POS sale is a submitted Sales Invoice with `is_pos = 1`, carrying the payments, the
 GST lines and the card or UPI details, booked under the cashier who sold it.
 
-## 4. Closing the till
+## 4. Closing the billing counter
 
-### REQ-POS-016 · A cashier closes their own till
+### REQ-POS-016 · A cashier closes their own billing counter
 A cashier can close their own session from the POS menu ("Close the POS"): the closing entry
 shows the session's sales and is submitted by the cashier.
 
 ## 5. Cashiers and devices
 
 ### REQ-POS-017 · A cashier signs in straight to the Point of Sale
-After sign-in, a cashier lands on the Point of Sale, where they open their till (session).
+After sign-in, a cashier lands on the Point of Sale, where they open their shift (session).
 
 ### REQ-POS-018 · A cashier uses only the Point of Sale
 A cashier (no manager or admin role) who opens any other desk page is sent back to the Point of
-Sale, with the message "Cashiers use the Point of Sale." Opening and closing the till (POS
+Sale, with the message "Cashiers use the Point of Sale." Opening and closing a shift (POS
 Opening Entry, POS Closing Entry) and printing receipts stay allowed. Managers are not redirected.
 
 ### REQ-POS-019 · One device at a time

@@ -69,7 +69,7 @@ async function main() {
     })
 
     await check('Items, prices and GST slabs', async () => {
-      const items = [...Object.values(d.items), ...d.demo.items]
+      const items = [...Object.values(d.items), ...d.billingCounters.slice(1).map((c) => c.item), ...d.demo.items] // counter 1's item is items.stock
       for (const item of items) {
         const doc = await api.findDoc('Item', item.code)
         expect(doc, `item ${item.code} missing`)
@@ -94,7 +94,7 @@ async function main() {
 
     await check('Stock on hand', async () => {
       const short = []
-      for (const item of [d.items.stock, ...d.demo.items]) {
+      for (const item of [...d.billingCounters.map((c) => c.item), ...d.demo.items]) {
         const [bin] = await api.getList('Bin', {
           filters: [['item_code', '=', item.code], ['warehouse', '=', d.warehouse]],
           fields: ['actual_qty'],
@@ -104,7 +104,7 @@ async function main() {
         if (qty < item.stockQty) short.push(`${item.code} has ${qty}, expected ${item.stockQty}`)
       }
       expect(!short.length, short.join('; '))
-      return `${d.items.stock.code}: ${d.items.stock.stockQty} and every demo item topped up, in ${d.warehouse}`
+      return `${d.billingCounters.map((c) => c.item.code).join(', ')}: ${d.items.stock.stockQty} each, and every demo item topped up, in ${d.warehouse}`
     })
 
     await check('GST', async () => {
@@ -169,7 +169,7 @@ async function main() {
       expect((p.applicable_for_users || []).some((u) => u.user === ENV.adminUser), `${ENV.adminUser} may not use it`)
       expect((p.payments || []).filter((r) => r.default).length === 1, 'needs exactly one default payment mode')
       expect(p.taxes_and_charges === d.gst.template, `charges ${p.taxes_and_charges || 'no tax'}, expected ${d.gst.template}`)
-      // QA POS is for Administrator, the manager and the admin; cashiers have their own tills.
+      // QA POS is for Administrator, the manager and the admin; cashiers have their own counters.
       for (const u of d.users.filter((x) => x.role !== 'Cashier')) expect((p.applicable_for_users || []).some((x) => x.user === u.email), `${u.email} may not use it`)
       const offered = await api.call('frappe.desk.search.search_link', {
         doctype: 'POS Profile',
@@ -181,9 +181,9 @@ async function main() {
       return `${p.warehouse}, ${p.selling_price_list}, ${p.customer}, pays ${p.payments.map((r) => r.mode_of_payment + (r.default ? ' (default)' : '')).join(', ')}`
     })
 
-    await check('Tills for the cashiers', async () => {
+    await check('Billing counters for the cashiers', async () => {
       const lines = []
-      for (const t of d.tills) {
+      for (const t of d.billingCounters.map((c) => ({ name: c.name, users: [c.cashier.email] }))) {
         const p = await api.findDoc('POS Profile', t.name)
         expect(p && !p.disabled, `${t.name} missing or disabled`)
         for (const u of t.users) expect((p.applicable_for_users || []).some((x) => x.user === u && x.default), `${u} is not on ${t.name}`)

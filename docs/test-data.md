@@ -54,6 +54,7 @@ Each item carries its slab, and the template's lines take the item's rate.
 | Item code | Name | GST | Buying | Selling (incl. GST) | Of which | Stock before every run |
 |---|---|---|---|---|---|---|
 | **QA-STOCK-001** | QA Stock Item | 18% | ₹60.00 | **₹118.00** | ₹100.00 + CGST ₹9.00 + SGST ₹9.00 | **50** |
+| QA-STOCK-002 / 003 / 004 | QA Stock Item 2 / 3 / 4 | 18% | ₹60.00 | **₹118.00** | the same as QA-STOCK-001 (one per [billing counter](#billing counters-parallel-test-runs)) | **50** each |
 | **QA-ITEM-001** | QA Service Item | 18% | — | **₹59.00** | ₹50.00 + ₹4.50 + ₹4.50 | no stock |
 | **QA-ECO-001** | QA Eco Item | none | — | **₹40.00** | carries its own **5% eco fee** (the item surcharge) | no stock |
 
@@ -112,14 +113,14 @@ What these show:
 | What | Value |
 |---|---|
 | Payment modes | **Cash** (default) → Cash - QAR · **UPI**, **Debit Card**, **Credit Card** → QA Bank - QAR |
-| POS profiles (tills) | **QA POS** (Administrator, manager, admin; used by the tests) · **Till 1** (Anjali) · **Till 2** (Rohit). Managers and admins may use every till |
-| Opening a till | The **Create POS Opening Entry** dialog lists **only Cash** (the drawer's opening float): click its Opening Amount, type the float, Submit. No row checkboxes, Delete row or Duplicate row (every listed row is submitted anyway) |
-| Opening float in tests | **₹1,000.00** cash (`testData.posProfile.openingCash`): the `pos` fixture opens the cashier's till with it before each POS test and closes the till after |
+| POS profiles (billing counters) | **QA POS** (Administrator, manager, admin; used by the tests) · **Billing Counter 1** (Anjali) · **Billing Counter 2** (Rohit) · **Billing Counter 3** (Kavya) · **Billing Counter 4** (Farhan): one per [billing counter](#billing counters-parallel-test-runs). Managers and admins may use every billing counter |
+| Opening a billing counter | The **Create POS Opening Entry** dialog lists **only Cash** (the drawer's opening float): click its Opening Amount, type the float, Submit. No row checkboxes, Delete row or Duplicate row (every listed row is submitted anyway) |
+| Opening float in tests | **₹1,000.00** cash (`testData.posProfile.openingCash`): the `pos` fixture opens the cashier's shift with it before each POS test and closes the shift after |
 | Every profile | Stores - QAR, Standard Selling, **Walk-in Customer** to start each sale, **GST In-State**, sale discount on **Net Total**, stock updated by each sale, rate and discount changes allowed, write-off up to ₹1.00 |
 | A POS sale is booked as | a **Sales Invoice** with `is_pos = 1` (POS Settings, the v16 default) |
 
 **One open session per profile:** ERPNext allows only one open POS session on a profile, so each
-cashier has their own till. On a shared profile the second cashier was refused: *"QA POS is open"*.
+cashier has their own billing counter. On a shared profile the second cashier was refused: *"QA POS is open"*.
 
 ### The payment screen (Retail POS India app)
 
@@ -137,7 +138,7 @@ cashier has their own till. On a shared profile the second cashier was refused: 
 
 **Selling by hand** (http://localhost:8080/desk/point-of-sale):
 
-1. Sign in as a cashier (below). The POS asks for a **POS Opening Entry**: your till, opening cash
+1. Sign in as a cashier (below). The POS asks for a **POS Opening Entry**: your billing counter, opening cash
    (e.g. ₹1,000), Submit.
 2. Add items, **Checkout**. Pay: tap **Cash**, **UPI** or a **card**, type the amount (5 0 0 = ₹500).
    For UPI enter the UTR; for a card, its type, last 4 digits and approval code. **Complete Order**, Yes.
@@ -151,23 +152,46 @@ the reserved `.test` domain, which can never be a real address.
 
 | User | Email | Role | ERPNext roles | POS |
 |---|---|---|---|---|
-| Anjali Verma | anjali.verma@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Till 1 |
-| Rohit Kumar | rohit.kumar@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Till 2 |
-| Meera Nair | meera.nair@qa-retail.test | Store Manager | + Sales, Stock and Accounts Manager | every till (default QA POS) |
-| Vikram Singh | vikram.singh@qa-retail.test | Admin | + System Manager | every till (default QA POS) |
+| Anjali Verma | anjali.verma@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Billing Counter 1 |
+| Rohit Kumar | rohit.kumar@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Billing Counter 2 |
+| Kavya Menon | kavya.menon@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Billing Counter 3 |
+| Farhan Ali | farhan.ali@qa-retail.test | Cashier | Cashier, Sales User, Stock User, Accounts User | Billing Counter 4 |
+| Meera Nair | meera.nair@qa-retail.test | Store Manager | + Sales, Stock and Accounts Manager | every billing counter (default QA POS) |
+| Vikram Singh | vikram.singh@qa-retail.test | Admin | + System Manager | every billing counter (default QA POS) |
 
 **Cashiers sign in straight to the Point of Sale** (role Cashier → Home Page `desk/point-of-sale`),
-where the till-opening dialog waits. A cashier who opens any other desk page is **sent back to the
-POS** (the cashier guard in retail_pos_india; opening and closing the till and receipts stay
+where the billing counter-opening dialog waits. A cashier who opens any other desk page is **sent back to the
+POS** (the cashier guard in retail_pos_india; opening and closing a shift and receipts stay
 allowed; managers and admins are not affected). **One device at a time:** "Allow only one session
 per user" is on and cashiers have 1 simultaneous session, so signing in on a second device ends the
-first. Administrator and the other demo users keep up to 10 (the tests sign Administrator in
-several times).
+first. Administrator and the other demo users keep up to 10.
+
+**The tests' API user:** `qa.automation@qa-retail.test` (QA Automation, the Admin roles, password
+`DEMO_USER_PASSWORD`) is not a person: the `api` fixture signs in as it, once per test worker, to
+set up and read back records. Tests never use Administrator for that, so a browser test signing
+Administrator in is never disturbed by a parallel worker's sign-in.
 
 **The Cashier role:** standard ERPNext lets only a Sales Manager or System Manager open or close a
 POS session; a plain cashier got *403 Permission denied*. The seed adds a **Cashier** role that
 may open, close and read **only the sessions they opened** (read, create, write, submit, "Only If
-Creator"; no cancel). Checked end to end: a cashier opened Till 1, sold by UPI and closed the till.
+Creator"; no cancel). Checked end to end: a cashier opened Billing Counter 1, sold by UPI and closed the shift.
+
+## Billing counters: parallel test runs
+
+Tests that run at the same time must not share a cashier (a cashier may be signed in once), a billing counter
+(one open session) or the stock they count. So the data is split into **billing counters**, like the checkout
+billing counters of a supermarket: each test worker gets one billing counter and uses only its own.
+
+| Billing counter | Cashier | Billing counter | Stock item | Used by |
+|---|---|---|---|---|
+| 1 | Anjali Verma | Billing Counter 1 | QA-STOCK-001 | worker 1 (every run) |
+| 2 | Rohit Kumar | Billing Counter 2 | QA-STOCK-002 | worker 2 |
+| 3 | Kavya Menon | Billing Counter 3 | QA-STOCK-003 | worker 3 |
+| 4 | Farhan Ali | Billing Counter 4 | QA-STOCK-004 | worker 4 |
+
+`WORKERS=4 npm test` runs four billing counters at once; with more workers than billing counters the run stops with a
+message saying so. Tests read their billing counter through fixtures: `users.cashier`, `shift`, `counter.item`.
+To run more in parallel, add a billing counter in `src/seed/data.js` (the seed creates its cashier, billing counter and item).
 
 ## Demo data (for trying things by hand)
 
@@ -211,7 +235,7 @@ Invoice, POS Profile), *Test data*, *Taxes and charges*, *Stock*, *Accounts and 
 | Setup wizard | India, INR, Asia/Kolkata, FY April-March | A fresh site has no company until it runs |
 | Default sales tax | **GST In-State - QAR**, and only it | Every sale on the screens gets GST; no other template sneaks in |
 | Payment modes UPI, Debit Card | created, linked to QA Bank - QAR | A POS profile needs every payment mode linked to an account |
-| Role Cashier | own POS sessions only | Cashiers could not open a till |
+| Role Cashier | own POS sessions only | Cashiers could not open a shift |
 | Administrator → Default Workspace | QA Testing | Every sign-in lands on the same page (v16 ignores "Default App" for system users) |
 
 ## Not prepared yet

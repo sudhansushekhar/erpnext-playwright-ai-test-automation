@@ -43,16 +43,16 @@ test('TC-SIGNIN-002 Administrator signs in and lands on the QA Testing page', { 
   expect(await session.sessionUser()).toBe(users.admin.email)
 })
 
-test('TC-SIGNIN-003 a cashier signs in straight to the Point of Sale, ready to open the till', { tag: ['@smoke'] }, async ({
+test('TC-SIGNIN-003 a cashier signs in straight to the Point of Sale, ready to open a shift', { tag: ['@smoke'] }, async ({
   loginPage,
   posPage,
   session,
-  tills,
+  shifts,
   users,
 }) => {
   meta({ priority: 'P0', severity: 'blocker', owner: 'sudhansushekhar', feature: 'Access', story: 'REQ-POS-017' })
   const { cashier } = users
-  await tills.closeAllOf(cashier.email) // her till must not be open
+  await shifts.closeAllOf(cashier.email) // she must have no open shift
   await loginPage.open()
 
   const response = await loginPage.signIn(cashier.email, cashier.password)
@@ -79,7 +79,7 @@ test('TC-SIGNIN-004 a cashier stays on the Point of Sale: other desk pages send 
     await expect(deskPage.cashierMessage).toBeVisible()
   }
 
-  // Closing the till is allowed.
+  // Closing the shift is allowed.
   await deskPage.open('/desk/pos-closing-entry/new')
   await deskPage.shows('New POS Closing Entry')
   await expect(deskPage.page).toHaveURL(/\/pos-closing-entry\/new/)

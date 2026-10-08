@@ -51,7 +51,7 @@ npx playwright install chromium webkit
 **3. Prepare the data and run:**
 
 ```bash
-npm run seed            # company, GST, items, users, tills... (first run: a few minutes)
+npm run seed            # company, GST, items, users, shifts... (first run: a few minutes)
 npm run check           # every line must be ✅ (read-only)
 npm run test:smoke      # the quick @smoke tests
 npm test                # every test, Chromium and WebKit
@@ -104,9 +104,10 @@ Tests never depend on anything clicked by hand: whatever they need is created by
 
 - Company **QA Retail** (₹, Asia/Kolkata, financial year April-March); **GST** as CGST + SGST,
   **included in prices**, slabs 0% / 5% / 18% (illustrative demo rates)
-- Payment modes **Cash, UPI, Debit Card, Credit Card**; tills **Till 1** (Anjali), **Till 2** (Rohit), **QA POS**
+- Payment modes **Cash, UPI, Debit Card, Credit Card**; billing counters **Billing Counter 1–4**, one per cashier, and **QA POS**
 - Test items with round numbers (QA-STOCK-001 ₹118.00 = ₹100.00 + CGST ₹9.00 + SGST ₹9.00), 11 demo items, stock
-- Demo customers and suppliers; users: 2 **cashiers**, a **store manager**, an **admin**
+- Demo customers and suppliers; users: 4 **cashiers**, a **store manager**, an **admin**
+- **Billing counters** for parallel runs: each test worker gets its own cashier, billing counter and stock item (`WORKERS=4 npm test`)
 - The **QA Testing** page in ERPNext, listing all of it
 
 **Every value, the people, and 13 measured GST examples: [`docs/test-data.md`](docs/test-data.md).**
@@ -117,7 +118,7 @@ Tests never depend on anything clicked by hand: whatever they need is created by
 |---|---|
 | **Test case** | Plain English in `docs/test-cases/`: steps and exact checks. Written (or approved) by the tester; every test comes from one. |
 | **Seed** | Prepares the test data before the tests run. It only creates what is missing, so running it again is safe. |
-| **Fixture** | Something a test asks for by name and gets ready-made (the POS with an open till, an API session), cleaned up after it. |
+| **Fixture** | Something a test asks for by name and gets ready-made (the POS with an open a shift, an API session), cleaned up after it. |
 | **Page object** | One class per screen that knows how to find things and do actions on it. Tests call its methods and never hold locators. |
 | **Read back by name** | After the screen saves something, ask the server for that exact record and check it, not "the latest one". |
 | **Mutation check** | Break a test on purpose to prove it can fail. A test that cannot fail proves nothing. |

@@ -18,7 +18,7 @@ This repository holds tests only.
 | `tests/<area>/*.spec.js` | Tests: steps and assertions only. |
 | `src/fixtures/` | `test`, `expect` and every fixture (table in `src/fixtures/index.js`). |
 | `src/pages/` | Page objects: one class per screen, one method per user action. **All locators live here.** |
-| `src/api/` | `FrappeClient` (REST: read back records by name) and `Tills` (open/close POS tills). |
+| `src/api/` | `FrappeClient` (REST: read back records by name) and `Shifts` (open/close POS billing counters). |
 | `src/utils/` | Pure helpers specs may import (money, invoice reading). |
 | `src/seed/` | `data.js`: every test value. `seed.js`: builds it before each run. `check.js`: is the site ready? |
 | `docs/test-data.md` | Every test data value and worked totals. **Read it before writing a test.** |
@@ -54,7 +54,7 @@ agent edits (`.claude/settings.json`): a violation is sent straight back to the 
 6. **[lint] Wait for the server, not the clock.** Wait for a response, a URL or a visible result.
    No `page.waitForTimeout`.
 7. **Set up data through the seed or the API, never through the screens**, unless the screen is what
-   the test is about. Values come from the `testData` fixture, people from `users` (`users.cashier`),
+   the test is about. Values come from the `testData` fixture, people from `users` (`users.cashier`), the stock item from `counter.item`,
    never as typed literals. A value not in `docs/test-data.md` is added to `src/seed/data.js` and
    that page first. Through the API a tax template needs its lines: `taxes: await api.salesTaxRows(t)`.
    Amounts are INR with GST **included in the price**; a sale's cash amount is its `rounded_total`.
@@ -64,9 +64,11 @@ agent edits (`.claude/settings.json`): a violation is sent straight back to the 
 10. **Every test must be able to fail.** Break the expected value (or the state, for a visibility
     check) once and watch it go red before trusting it green (`/mutation-check`).
 11. **Never type or commit a real credential.** Only the local Docker values in `.env`.
-12. **One sign-in per user at a time.** The `api` fixture is Administrator; signing the same user in
-    again while a page of theirs loads shows "Server Error". UI tests sign the browser in as a demo
-    user; when the browser must be Administrator, create the API session first.
+12. **One sign-in per user at a time.** Signing a user in again while a page of theirs loads shows
+    "Server Error", and tests run in parallel. So the `api` fixture signs in as its own automation
+    user (never Administrator), and each worker uses only its own **billing counter**: its cashier, billing counter and stock
+    item (`users.cashier`, `shift`, `counter.item`; "Billing counters" in `docs/test-data.md`). Never sign in
+    another billing counter's cashier, and never use Administrator for API work.
 
 ## Test cases from requirements (BRD / PRD)
 
