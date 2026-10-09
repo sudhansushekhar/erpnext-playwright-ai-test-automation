@@ -44,8 +44,8 @@ erpnext-playwright-ai-test-automation/
 │   │   └── PosPage.js             the Point of Sale
 │   ├── api/                       talking to ERPNext without a browser
 │   │   ├── FrappeClient.js        REST client: read records by name, insert, call methods
-│   │   ├── shifts.js              Shifts: open and close a POS shift (session)
-│   │   └── sales.js               Sales: make a POS sale, or return one, through the API
+│   │   ├── Shifts.js              Shifts: open and close a POS shift (session)
+│   │   └── Sales.js               Sales: make a POS sale, or return one, through the API
 │   ├── seed/                      the test data
 │   │   ├── data.js                every value (company, GST, items, people, billing counters)
 │   │   ├── seed.js                builds it on the site, safely re-runnable

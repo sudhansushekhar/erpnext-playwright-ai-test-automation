@@ -72,7 +72,7 @@ class Shifts {
       row.expected_amount += payment.amount
       row.closing_amount = row.expected_amount
     }
-    const sum = (key) => data.invoices.reduce((total, inv) => total + (inv[key] || 0), 0)
+    const sum = (key) => data.invoices.reduce((total, invoice) => total + (invoice[key] || 0), 0)
 
     const closing = await this.api.insert('POS Closing Entry', {
       pos_opening_entry: opening.name,
@@ -83,13 +83,13 @@ class Shifts {
       period_end_date: end,
       posting_date: end.slice(0, 10),
       posting_time: end.slice(11),
-      sales_invoices: data.invoices.map((inv) => ({
-        sales_invoice: inv.name,
-        posting_date: inv.posting_date,
-        grand_total: inv.grand_total,
-        customer: inv.customer,
-        is_return: inv.is_return,
-        return_against: inv.return_against,
+      sales_invoices: data.invoices.map((invoice) => ({
+        sales_invoice: invoice.name,
+        posting_date: invoice.posting_date,
+        grand_total: invoice.grand_total,
+        customer: invoice.customer,
+        is_return: invoice.is_return,
+        return_against: invoice.return_against,
       })),
       payment_reconciliation: reconciliation,
       taxes: data.taxes.map((tax) => ({ account_head: tax.account_head, amount: tax.tax_amount })),

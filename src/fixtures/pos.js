@@ -7,8 +7,8 @@
  */
 const { expect } = require('@playwright/test')
 const { test: pages } = require('./pages')
-const { Shifts } = require('../api/shifts')
-const { Sales } = require('../api/sales')
+const { Shifts } = require('../api/Shifts')
+const { Sales } = require('../api/Sales')
 const { note } = require('../report')
 
 const test = pages.extend({
