@@ -49,7 +49,8 @@ erpnext-playwright-ai-test-automation/
 │   ├── seed/                      the test data
 │   │   ├── data.js                every value (company, GST, items, people, billing counters)
 │   │   ├── seed.js                builds it on the site, safely re-runnable
-│   │   ├── globalSetup.js         runs the seed before every test run
+│   │   ├── globalSetup.js         runs the seed, then the warm-up, before every test run
+│   │   ├── warmUp.js              loads the POS once per cashier so the first tests do not start cold
 │   │   ├── run.js                 `npm run seed`
 │   │   └── check.js               `npm run check`: is the site ready? (read-only)
 │   └── utils/                     helpers specs may import
