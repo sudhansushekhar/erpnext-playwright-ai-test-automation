@@ -116,4 +116,4 @@ return; TC-RET-203 API sale + API return (what the server books, without the scr
 
 Line and sale discounts, item and sale surcharges (the POS screen cannot pick a surcharge), a customer
 other than Walk-in Customer, refunds other than cash, vouchers, due dates: each needs its own test case
-and test (its own steps). Never accepted in test data: full card numbers and card expiry dates (PCI).
+and test (its own steps). Never accepted in test data: passwords and tokens (they belong in `.env`).

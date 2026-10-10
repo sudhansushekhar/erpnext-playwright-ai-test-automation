@@ -1,209 +1,170 @@
 /**
  * Read test data from an Excel (.xlsx) or JSON (.json) file, for any module: sales, returns,
- * purchases... One function, the same call for both formats. Every column is read; no column list
- * and no per-module code.
+ * purchases... Every column is read; there is no column list and no per-module code.
  *
  *   const { readTestData } = require('../../src/utils/dataReader')
  *   readTestData({ file: 'testdata/sales/SaleTestData.xlsx', sheet: 'Sales', testCaseId: 'TC-SALE-101' })
  *   readTestData({ file: 'testdata/sales/SaleTestData.json', testCaseId: 'TC-SALE-102' })
  *   readTestData({ file: 'testdata/sales/SaleTestData.json' })   every test case of the file (a list)
  *
- * With a testCaseId it returns that test case; an Excel file needs its sheet, a JSON file has none.
- * It stops with a clear message if the file has problems, or the sheet or test case is not there.
+ * Both formats give the same shape:
  *
- * A test case: { testCaseId, title, requirement, tag, ..., transactions: [ { transactionType, ..., lines: [ {...} ] } ] }
+ *   { testCaseId, title, requirement, tag, ..., where,
+ *     transactions: [ { transactionType, grandTotal, ..., where,
+ *       lines: [ { itemCode, qty, ..., where } ] } ] }
  *
- * Excel: a header row, then one row per line. A header becomes a key in camelCase: "Item Code" →
- * itemCode, "Pay Amount" → payAmount, "UPI Transaction ID" → upiTransactionId.
+ * `where` says where each part is written (file › sheet › row), for error messages.
  *
- *   - "Test Case ID" starts a test case. The columns BEFORE "Transaction Type" (Title, Requirement,
- *     Tag...) belong to the test case, from its first row.
- *   - "Transaction Type" starts a transaction in that test case. It gets every column from its first
- *     row (totals, payment...: merged cells keep their value in the top cell).
- *   - Every row of a transaction is one of its `lines`, with that row's own values.
- *   Blank cells below a test case or transaction belong to the same one; blank rows are skipped.
+ * JSON is written in that shape by hand: { "testCases": [ ... ] }.
  *
- * JSON: the same shape, with the same keys, written by hand:
- *
- *   { "testCases": [ { "testCaseId": "TC-SALE-102", "title": "...", "requirement": "REQ-POS-011", "tag": "@nightly",
- *       "transactions": [ { "transactionType": "Sale", "grandTotal": 236, "paymentType": "UPI", "payAmount": 236,
- *         "lines": [ { "itemCode": "QA-DATA-001", "itemName": "QA Data Item", "qty": 2, "lineTotal": 236 } ] } ] } ] }
- *
- * Every test case, transaction and line keeps `where` it was written (file › sheet › row), for messages.
- * Checked here, for every module: each test case has an ID (unique in its file) and transactions;
- * card numbers, expiry dates, CVVs and passwords are never accepted (PCI, secrets). What the values must
- * be is the test's business: it uses them in its steps and checks.
+ * Excel has a header row, then one row per line. Each header becomes a camelCase key
+ * ("Item Code" → itemCode). On a row:
+ *   - a "Test Case ID" starts a new test case; it takes the columns before "Transaction Type".
+ *   - a "Transaction Type" starts a new transaction; it takes that column and every one after it.
+ *   - the columns after "Transaction Type" are also the row's line.
+ * Blank cells below a test case or transaction belong to it (merged cells keep their value in the
+ * top cell). Blank rows are skipped.
  */
 const fs = require('fs')
 const path = require('path')
 const XLSX = require('xlsx')
 
-const CASE_ID = 'testCaseId'
-const TRANSACTION_TYPE = 'transactionType'
-
-// Columns never accepted, in any module: payment card data and secrets.
-const FORBIDDEN = [
-  { pattern: /card(no|number)$/i, reason: 'a full card number is never stored (PCI): use the last 4 digits' },
-  { pattern: /(expiry|expiration|cvv|cvc)/i, reason: 'card expiry dates and CVVs are never stored (PCI)' },
-  { pattern: /(password|secret|token)/i, reason: 'secrets never go in test data: use .env' },
-]
-
-/** "UPI Transaction ID" → "upiTransactionId", "Credit Date/ExpiryDate" → "creditDateExpiryDate". */
-function keyOf(header) {
-  const words = String(header || '').replace(/[^A-Za-z0-9]+/g, ' ').trim().split(' ').filter(Boolean)
-  return words.map((word, index) => (index === 0 ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1).toLowerCase())).join('')
-}
-
-const fileCache = new Map() // each file is read once, however many tests use it
+const cache = new Map() // file → its test cases; each file is read once, however many tests use it
 
 function readTestData({ file, sheet, testCaseId } = {}) {
   if (!file) throw new Error('readTestData needs { file } (and sheet for an Excel file, testCaseId for one test case)')
-  const isExcel = /\.xlsx$/i.test(file)
+  const isExcel = file.toLowerCase().endsWith('.xlsx')
   if (!isExcel && sheet) throw new Error(`${file}: a JSON file has no sheets; remove sheet: '${sheet}'`)
-  if (!fileCache.has(file)) fileCache.set(file, readFile(file))
-  let testCases = fileCache.get(file)
+  if (isExcel && testCaseId && !sheet) throw new Error(`${file}: an Excel file needs its sheet: readTestData({ file, sheet: 'Sales', testCaseId: '${testCaseId}' })`)
 
-  if (sheet) {
-    if (!testCases.some((testCase) => testCase.sheet === sheet)) {
-      const sheets = [...new Set(testCases.map((testCase) => testCase.sheet))].join(', ') || 'none'
-      throw new Error(`${file}: no sheet "${sheet}" with test cases (sheets with test cases: ${sheets})`)
-    }
-    testCases = testCases.filter((testCase) => testCase.sheet === sheet)
-  }
+  if (!cache.has(file)) cache.set(file, loadFile(file, isExcel))
+  const allTestCases = cache.get(file)
+
+  const testCases = sheet ? allTestCases.filter((testCase) => testCase.sheet === sheet) : allTestCases
+  if (sheet && !testCases.length) throw new Error(`${file}: no sheet "${sheet}" with test cases`)
   if (!testCaseId) return testCases
 
-  if (isExcel && !sheet) throw new Error(`${file}: an Excel file needs its sheet: readTestData({ file, sheet: 'Sales', testCaseId: '${testCaseId}' })`)
-  const found = testCases.find((testCase) => testCase[CASE_ID] === testCaseId)
-  if (!found) {
-    const known = testCases.map((testCase) => testCase[CASE_ID]).join(', ') || 'none'
-    throw new Error(`${file}${sheet ? ` › ${sheet}` : ''}: no test case ${testCaseId} (it has: ${known})`)
-  }
+  const found = testCases.find((testCase) => testCase.testCaseId === testCaseId)
+  if (!found) throw new Error(`${file}: no test case ${testCaseId} (it has: ${testCases.map((testCase) => testCase.testCaseId).join(', ')})`)
   return found
 }
 
-/** Every test case of one file. Stops with every problem found in it. */
-function readFile(file) {
+function loadFile(file, isExcel) {
   if (!fs.existsSync(file)) throw new Error(`Test data file ${file} does not exist`)
-  const problems = []
+  const testCases = isExcel ? readExcel(file) : readJson(file)
+  check(testCases)
+  return testCases
+}
+
+// ── JSON: already in the right shape; only add `file` and `where` ──────────────────────
+
+function readJson(file) {
   const name = path.basename(file)
-  const testCases = /\.json$/i.test(file) ? readJson(file, name, problems) : readExcel(file, name, problems)
-  checkShape(testCases, problems)
-  if (problems.length) throw new Error(`Test data ${file} has ${problems.length} problem(s):\n  - ${problems.join('\n  - ')}`)
-  return testCases
-}
-
-// ── Reading ─────────────────────────────────────────────────────────────────────────────
-
-function readJson(file, name, problems) {
-  let data
+  let testCases
   try {
-    data = JSON.parse(fs.readFileSync(file, 'utf8'))
+    testCases = JSON.parse(fs.readFileSync(file, 'utf8')).testCases
   } catch (error) {
-    problems.push(`${name}: not valid JSON (${error.message})`)
-    return []
+    throw new Error(`${name}: not valid JSON (${error.message})`, { cause: error })
   }
-  if (!Array.isArray(data.testCases)) {
-    problems.push(`${name}: needs { "testCases": [ ... ] }`)
-    return []
-  }
-  return data.testCases.map((testCase, caseIndex) => {
-    const caseAt = `${name} › testCases[${caseIndex}]`
-    rejectForbidden(testCase, caseAt, problems)
-    return {
-      ...testCase,
-      file: name,
-      where: caseAt,
-      transactions: (testCase.transactions || []).map((transaction, transactionIndex) => {
-        const transactionAt = `${caseAt}.transactions[${transactionIndex}]`
-        rejectForbidden(transaction, transactionAt, problems)
-        return {
-          ...transaction,
-          where: transactionAt,
-          lines: (transaction.lines || []).map((line, lineIndex) => {
-            const lineAt = `${transactionAt}.lines[${lineIndex}]`
-            rejectForbidden(line, lineAt, problems)
-            return { ...line, where: lineAt }
-          }),
-        }
-      }),
-    }
+  if (!Array.isArray(testCases)) throw new Error(`${name}: needs { "testCases": [ ... ] }`)
+
+  testCases.forEach((testCase, caseIndex) => {
+    testCase.file = name
+    testCase.where = `${name} › testCases[${caseIndex}]`
+    testCase.transactions = testCase.transactions || []
+    testCase.transactions.forEach((transaction, transactionIndex) => {
+      transaction.where = `${testCase.where}.transactions[${transactionIndex}]`
+      transaction.lines = transaction.lines || []
+      transaction.lines.forEach((line, lineIndex) => {
+        line.where = `${transaction.where}.lines[${lineIndex}]`
+      })
+    })
   })
+  return testCases
 }
 
-function readExcel(file, name, problems) {
-  const book = XLSX.readFile(file)
-  const testCases = []
-  for (const sheet of book.SheetNames) {
-    const rows = XLSX.utils.sheet_to_json(book.Sheets[sheet], { header: 1, raw: true, defval: null, blankrows: true })
-    if (!rows.length) continue
-    const keys = rows[0].map(keyOf)
-    const caseColumn = keys.indexOf(CASE_ID)
-    const typeColumn = keys.indexOf(TRANSACTION_TYPE)
-    if (caseColumn < 0 || typeColumn < 0) {
-      problems.push(`${name} › ${sheet}: needs the columns "Test Case ID" and "Transaction Type"`)
-      continue
+// ── Excel: every sheet, row by row ──────────────────────────────────────────────────────
+
+function readExcel(file) {
+  const workbook = XLSX.readFile(file)
+  return workbook.SheetNames.flatMap((sheet) => readSheet(workbook.Sheets[sheet], sheet, path.basename(file)))
+}
+
+function readSheet(worksheet, sheet, name) {
+  const [header, ...rows] = XLSX.utils.sheet_to_json(worksheet, { header: 1, defval: null, blankrows: true })
+  if (!header) return [] // an empty sheet
+
+  const keys = header.map(toCamelCase)
+  const caseColumn = keys.indexOf('testCaseId')
+  const typeColumn = keys.indexOf('transactionType')
+  if (caseColumn < 0 || typeColumn < 0) throw new Error(`${name} › ${sheet}: needs the columns "Test Case ID" and "Transaction Type"`)
+
+  // The filled cells of a row, from one column up to (not including) another, as { key: value }.
+  const cellsOf = (row, fromColumn, toColumn = keys.length) => {
+    const cells = {}
+    for (let column = fromColumn; column < toColumn; column++) {
+      if (keys[column] && isFilled(row[column])) cells[keys[column]] = trim(row[column])
     }
-    keys.forEach((key, column) => {
-      const rule = FORBIDDEN.find((forbidden) => forbidden.pattern.test(key))
-      if (rule && rows.slice(1).some((row) => isFilled(row[column]))) problems.push(`${name} › ${sheet} › column "${rows[0][column]}": ${rule.reason}`)
-    })
-
-    let testCase = null
-    let transaction = null
-    rows.slice(1).forEach((row, rowIndex) => {
-      const place = `${name} › ${sheet} › row ${rowIndex + 2}` // Excel's row number: the header is row 1
-      const valuesOf = (fromColumn, toColumn = keys.length) => Object.fromEntries(
-        keys.slice(fromColumn, toColumn)
-          .map((key, offset) => [key, row[fromColumn + offset]])
-          .filter(([key, value]) => key && isFilled(value))
-          .map(([key, value]) => [key, typeof value === 'string' ? value.trim() : value]),
-      )
-      if (!Object.keys(valuesOf(0)).length) return // a blank row
-
-      if (isFilled(row[caseColumn])) {
-        testCase = { ...valuesOf(0, typeColumn), file: name, sheet, where: place, transactions: [] }
-        transaction = null
-        testCases.push(testCase)
-      } else if (!testCase) {
-        problems.push(`${place}: comes before any "Test Case ID"`)
-        return
-      }
-      if (isFilled(row[typeColumn])) {
-        transaction = { ...valuesOf(typeColumn), where: place, lines: [] }
-        testCase.transactions.push(transaction)
-      } else if (!transaction) {
-        problems.push(`${place}: comes before any "Transaction Type" in ${testCase[CASE_ID]}`)
-        return
-      }
-      const line = valuesOf(typeColumn + 1)
-      if (Object.keys(line).length) transaction.lines.push({ ...line, where: place })
-    })
+    return cells
   }
+
+  const testCases = []
+  rows.forEach((row, index) => {
+    const where = `${name} › ${sheet} › row ${index + 2}` // Excel's row number: the header is row 1
+    if (!row.some(isFilled)) return // a blank row
+
+    if (isFilled(row[caseColumn])) {
+      testCases.push({ ...cellsOf(row, 0, typeColumn), file: name, sheet, where, transactions: [] })
+    }
+    const testCase = testCases.at(-1)
+    if (!testCase) throw new Error(`${where}: comes before any "Test Case ID"`)
+
+    if (isFilled(row[typeColumn])) {
+      testCase.transactions.push({ ...cellsOf(row, typeColumn), where, lines: [] })
+    }
+    const transaction = testCase.transactions.at(-1)
+    if (!transaction) throw new Error(`${where}: comes before any "Transaction Type" in ${testCase.testCaseId}`)
+
+    const line = cellsOf(row, typeColumn + 1)
+    if (Object.keys(line).length) transaction.lines.push({ ...line, where })
+  })
   return testCases
+}
+
+/** "UPI Transaction ID" → "upiTransactionId", "Credit Date/ExpiryDate" → "creditDateExpiryDate". */
+function toCamelCase(header) {
+  const words = String(header || '').split(/[^A-Za-z0-9]+/).filter(Boolean)
+  return words.map((word, index) => (index === 0 ? word.toLowerCase() : word[0].toUpperCase() + word.slice(1).toLowerCase())).join('')
+}
+
+// ── Checks, the same for both formats ──────────────────────────────────────────────────
+
+function check(testCases) {
+  const seen = new Set()
+  for (const testCase of testCases) {
+    const { testCaseId, where } = testCase
+    if (!isFilled(testCaseId)) throw new Error(`${where}: a test case without "Test Case ID"`)
+    if (seen.has(testCaseId)) throw new Error(`${where}: Test Case ID ${testCaseId} is used twice in the file`)
+    seen.add(testCaseId)
+    if (!testCase.transactions.length) throw new Error(`${where}: ${testCaseId} has no transactions`)
+    rejectSecrets(testCase)
+
+    for (const transaction of testCase.transactions) {
+      if (!isFilled(transaction.transactionType)) throw new Error(`${transaction.where}: a transaction without "Transaction Type"`)
+      if (!transaction.lines.length) throw new Error(`${transaction.where}: a transaction without lines`)
+      rejectSecrets(transaction)
+      transaction.lines.forEach(rejectSecrets)
+    }
+  }
+}
+
+/** Passwords and tokens belong in .env, never in test data (CLAUDE.md rule 11). */
+function rejectSecrets(record) {
+  const key = Object.keys(record).find((name) => /password|secret|token/i.test(name) && isFilled(record[name]))
+  if (key) throw new Error(`${record.where} › ${key}: secrets never go in test data: use .env`)
 }
 
 const isFilled = (value) => value !== null && value !== undefined && String(value).trim() !== ''
-
-function rejectForbidden(record, place, problems) {
-  for (const key of Object.keys(record)) {
-    const rule = FORBIDDEN.find((forbidden) => forbidden.pattern.test(key))
-    if (rule && isFilled(record[key])) problems.push(`${place} › ${key}: ${rule.reason}`)
-  }
-}
-
-function checkShape(testCases, problems) {
-  const firstPlace = new Map()
-  for (const testCase of testCases) {
-    const id = testCase[CASE_ID]
-    if (!isFilled(id)) problems.push(`${testCase.where}: a test case without "Test Case ID"`)
-    else if (firstPlace.has(id)) problems.push(`${testCase.where}: Test Case ID ${id} is also at ${firstPlace.get(id)}`)
-    else firstPlace.set(id, testCase.where)
-    if (!testCase.transactions || !testCase.transactions.length) problems.push(`${testCase.where}: ${id} has no transactions`)
-    for (const transaction of testCase.transactions || []) {
-      if (!isFilled(transaction[TRANSACTION_TYPE])) problems.push(`${transaction.where}: a transaction without "Transaction Type"`)
-      if (!transaction.lines || !transaction.lines.length) problems.push(`${transaction.where}: a transaction without lines`)
-    }
-  }
-}
+const trim = (value) => (typeof value === 'string' ? value.trim() : value)
 
 module.exports = { readTestData }

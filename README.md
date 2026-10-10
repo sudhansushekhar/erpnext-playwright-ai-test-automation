@@ -155,8 +155,8 @@ For an Excel file you also give the sheet: `readTestData({ file, sheet: 'Sales',
 Some things worth knowing:
 
 - There's one reader for every module. Each column header becomes a key ("Item Code" becomes
-  `itemCode`), so a new column shows up in the data without any code change. The reader refuses card
-  numbers, expiry dates, CVVs and passwords.
+  `itemCode`), so a new column shows up in the data without any code change. The reader refuses
+  passwords and tokens: they belong in `.env`.
 - If the file, the sheet or the test case ID isn't there, the test fails and says what the file does
   contain. It also fails if the title in the data doesn't match the test's title.
 - You can add data before anyone writes its test. `npm run lint` lists those test cases as "no test yet"
