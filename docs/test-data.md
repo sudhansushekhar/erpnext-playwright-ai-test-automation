@@ -210,7 +210,7 @@ in Excel is in the data at once. The layout gives the shape:
   (totals, payment, ware house: merged cells are fine, the value sits in the top cell).
 - **Every row** is a line of its transaction, with its own values (item, quantity, price...).
 
-The reader refuses, for every module, card numbers, card expiry dates, CVVs and passwords (PCI, secrets).
+The reader refuses, for every module, passwords and tokens: they belong in `.env`. Card values are dummy test data and are allowed.
 
 **What the sales tests use** (each test uses the columns its own steps need; Item Name is the name the
 screen shows, which the test clicks):
