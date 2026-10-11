@@ -80,8 +80,8 @@ agent edits (`.claude/settings.json`): a violation is sent straight back to the 
     check) once and watch it go red before trusting it green (`/mutation-check`).
 11. **Never type or commit a real credential.** Only the local Docker values in `.env`.
 12. **One sign-in per user at a time.** Signing a user in again while a page of theirs loads shows
-    "Server Error", and tests run in parallel. So the `api` fixture signs in as its own automation
-    user (never Administrator), and each worker uses only its own **billing counter**: its cashier, billing counter and stock
+    "Server Error", and tests run in parallel. So the `api` fixture uses its own automation
+    user (never Administrator), signed in once in global setup and shared by the workers, and each worker uses only its own **billing counter**: its cashier, billing counter and stock
     item (`users.cashier`, `shift`, `counter.item`; "Billing counters" in `docs/test-data.md`). Never sign in
     another billing counter's cashier, and never use Administrator for API work.
 

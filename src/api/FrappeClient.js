@@ -28,6 +28,19 @@ class FrappeClient {
     return new FrappeClient(requestContext)
   }
 
+  /**
+   * A client on a session saved earlier with `saveSession` (its cookies), so several workers can share
+   * one sign-in instead of each signing the same user in at the same moment. Call dispose() when done.
+   */
+  static async resume(baseUrl, sessionFile) {
+    return new FrappeClient(await request.newContext({ baseURL: baseUrl, storageState: sessionFile }))
+  }
+
+  /** Save this session's cookies to `file`, for `FrappeClient.resume`. */
+  async saveSession(file) {
+    await this.requestContext.storageState({ path: file })
+  }
+
   /** Wrap an existing request context, e.g. page.request, which shares the browser's session. */
   static fromContext(requestContext) {
     return new FrappeClient(requestContext)
