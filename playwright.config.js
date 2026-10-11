@@ -45,7 +45,20 @@ module.exports = defineConfig({
     // console), a screenshot at the moment it failed, and a video of the test.
     trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
-    video: 'retain-on-failure',
+    video: {
+      mode: 'retain-on-failure',
+      size: { width: 1440, height: 900 },
+      fps:60,
+      show:{
+        actions:{
+          style:{
+            point: 'width:20px; height: 20px; border-radius: 50%; background:red',
+            highlight:'outline: 2px solid #333; background: rgba(0, 128, 255, .15)',
+            title: 'font-size:16px',
+          },
+        },
+      },
+    },
     viewport: { width: 1440, height: 900 },
   },
 

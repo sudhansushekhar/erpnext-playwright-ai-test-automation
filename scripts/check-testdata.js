@@ -41,7 +41,8 @@ for (const file of filesIn(DATA_ROOT, /\.(xlsx|json)$/i)) {
 const usedCases = new Map() // Test Case ID → the spec that reads it
 for (const spec of filesIn(TESTS_ROOT, /\.spec\.js$/)) {
   const source = fs.readFileSync(spec, 'utf8')
-  for (const match of source.matchAll(/readTestData\(\{[^}]*testCaseId:\s*['"`]([^'"`]+)['"`]/g)) {
+  // Spaces are allowed anywhere around the colon: `testCaseId: 'TC-...'` or `testCaseId : 'TC-...'`.
+  for (const match of source.matchAll(/readTestData\(\s*\{[^}]*testCaseId\s*:\s*['"`]([^'"`]+)['"`]/g)) {
     usedCases.set(match[1], spec)
   }
 }
