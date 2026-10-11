@@ -9,6 +9,7 @@ const fs = require('fs')
 const base = require('@playwright/test')
 const { ENV } = require('../../config/env')
 const { FrappeClient } = require('../api/FrappeClient')
+const { API_SESSION_FILE } = require('../seed/apiSession')
 
 const test = base.test.extend({
   /** Base URL and credentials (config/env.js, from .env). */
@@ -58,9 +59,17 @@ const test = base.test.extend({
    * A REST session to set up data and read back records by name, signed in as the tests' own
    * automation user (Admin roles), once per worker. Not Administrator: an Administrator sign-in from
    * a parallel worker while a browser page of Administrator loads shows "Server Error" (rule 12).
+   * Global setup signs the automation user in ONCE and every worker resumes that session: workers
+   * signing the same user in at the same moment made ERPNext fail most of the sign-ins
+   * (src/seed/apiSession.js).
    */
   api: [async ({ testData, env }, use) => {
-    const api = await FrappeClient.signIn(env.baseUrl, testData.automationUser, env.demoUserPassword)
+    const api = await FrappeClient.resume(env.baseUrl, API_SESSION_FILE)
+    const signedIn = await api.sessionUser()
+    if (signedIn !== testData.automationUser) {
+      await api.dispose()
+      throw new Error(`The shared API session (${API_SESSION_FILE}) is signed in as ${signedIn || 'nobody'}, not ${testData.automationUser}: run the tests through Playwright, whose global setup signs in`)
+    }
     await use(api)
     await api.dispose()
   }, { scope: 'worker' }],
