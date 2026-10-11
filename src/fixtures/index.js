@@ -39,4 +39,49 @@ const { test } = require('./pos')
 //                      testData; renamed so it does not clash with the testData fixture)
 const { meta, log, testData: reportData } = require('reporting-labs')
 
-module.exports = { test, expect, meta, log, reportData }
+// ── Types, for the editor only (no effect when tests run) ─────────────────────────────────
+// Fixtures reach a test as `async ({ pos, api }) => ...`, and in plain JavaScript the editor cannot
+// tell what `pos` is: Ctrl+click on `pos.payWith` went nowhere. These types say it, so Ctrl+click
+// opens the page object's method, and typing `pos.` lists its methods.
+
+/** @typedef {import('../pages/PosPage').PosPage} PosPage */
+/** @typedef {import('../pages/LoginPage').LoginPage} LoginPage */
+/** @typedef {import('../pages/DeskPage').DeskPage} DeskPage */
+/** @typedef {import('../api/FrappeClient').FrappeClient} FrappeClient */
+/** @typedef {import('../api/Shifts').Shifts} Shifts */
+/** @typedef {import('../api/Sales').Sales} Sales */
+/** @typedef {typeof import('../seed/data').TEST_DATA} TestData */
+/** @typedef {TestData['billingCounters'][number]} BillingCounter */
+/** @typedef {{ email: string, name: string, password: string }} Person */
+
+/**
+ * @typedef {object} TestFixtures
+ * @property {FrappeClient} session  REST client on the browser's own session
+ * @property {LoginPage} loginPage
+ * @property {DeskPage} deskPage
+ * @property {PosPage} posPage  the Point of Sale screen (not signed in, nothing opened)
+ * @property {{ page: import('@playwright/test').Page, loginPage: LoginPage, deskPage: DeskPage, session: FrappeClient }} secondDevice
+ * @property {{ counter: string, cashier: string, opening: string }} shift  the cashier's open shift
+ * @property {PosPage} pos  the Point of Sale, cashier signed in, shift open: ready to sell
+ * @property {PosPage} posBeforeOpening  the Point of Sale before the shift is opened
+ */
+
+/**
+ * @typedef {object} WorkerFixtures
+ * @property {typeof import('../../config/env').ENV} env
+ * @property {TestData} testData
+ * @property {BillingCounter} counter  this worker's billing counter
+ * @property {{ admin: Person, cashier: Person & { counter: string }, manager: Person }} users
+ * @property {FrappeClient} api  REST session as the automation user
+ * @property {Shifts} shifts
+ * @property {Sales} sales
+ */
+
+/**
+ * @type {import('@playwright/test').TestType<
+ *   import('@playwright/test').PlaywrightTestArgs & import('@playwright/test').PlaywrightTestOptions & TestFixtures,
+ *   import('@playwright/test').PlaywrightWorkerArgs & import('@playwright/test').PlaywrightWorkerOptions & WorkerFixtures>}
+ */
+const typedTest = test
+
+module.exports = { test: typedTest, expect, meta, log, reportData }
