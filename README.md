@@ -2,6 +2,14 @@
 
 [![ERPNext POS · Playwright E2E](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/playwright-e2e.yml/badge.svg)](https://github.com/sudhansushekhar/erpnext-playwright-ai-test-automation/actions/workflows/playwright-e2e.yml)
 
+> **At a glance**
+> - **What:** an end-to-end test framework in Playwright (JavaScript) for a real retail point of sale (ERPNext): GST, cash/UPI/card payments, returns. 17 tests on Chromium and WebKit.
+> - **How:** page objects, fixtures, test data set up through the API, every saved invoice checked on the server, data-driven tests from Excel/JSON, 4 tests in parallel.
+> - **CI:** GitHub Actions starts the app in Docker; quick tests on every pull request (~5 min), the full suite nightly, results on a [live dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/).
+> - **AI:** tests written by an AI agent (Claude Code) from test cases I review, kept honest by lint rules, an edit hook and mutation testing.
+
+[![Test dashboard: the latest nightly run, 34 of 34 passed](docs/images/dashboard.png)](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/)
+
 [Test dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/) (last night's full run and the trend over time)
 
 This is my end-to-end test framework for the ERPNext Point of Sale, set up for an Indian retail store:
