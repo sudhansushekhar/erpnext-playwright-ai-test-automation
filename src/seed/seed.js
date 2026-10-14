@@ -412,8 +412,15 @@ async function ensurePosProfile(api, log) {
       payments: testData.paymentModes.map((paymentMode) => ({ mode_of_payment: paymentMode.mode, default: paymentMode.default ? 1 : 0 })),
       applicable_for_users: users.map((user) => ({ user, default: defaultFor.includes(user) ? 1 : 0 })),
     }
-    if (await api.findDoc('POS Profile', name)) {
-      await api.update('POS Profile', name, profile)
+    const existing = await api.findDoc('POS Profile', name)
+    if (existing) {
+      // Saved only when something differs: every save of a POS Profile makes ERPNext drop the cashiers'
+      // cached start-up data, and the next Point of Sale load took 6 s instead of 2.
+      const changed = changedFields(existing, profile)
+      if (changed.length) {
+        log(`SEED: updating POS Profile ${name} (${changed.join(', ')})`)
+        await api.update('POS Profile', name, profile)
+      }
       continue
     }
     log(`SEED: creating POS Profile ${name}`)
@@ -466,8 +473,14 @@ async function ensureQaPage(api, log) {
   }
 
   const workspace = { label: name, title: name, module: name, public: 1, type: 'Workspace', content: JSON.stringify(content), shortcuts }
-  if (await api.findDoc('Workspace', name)) await api.update('Workspace', name, workspace)
-  else {
+  const existingWorkspace = await api.findDoc('Workspace', name)
+  if (existingWorkspace) {
+    const changed = changedFields(existingWorkspace, workspace)
+    if (changed.length) {
+      log(`SEED: updating the ${name} page (${changed.join(', ')})`)
+      await api.update('Workspace', name, workspace)
+    }
+  } else {
     log(`SEED: creating the ${name} page`)
     await api.insert('Workspace', workspace)
   }
@@ -489,8 +502,13 @@ async function ensureQaPage(api, log) {
   ]
   const [custom] = await api.getList('Custom Sidebar', { filters: [['module', '=', name], ['user', 'is', 'not set']], limit: 1 })
   const sidebar = { module: name, label: name, header_icon: 'clipboard-check', sidebar_items: sidebarItems }
-  if (custom) await api.update('Custom Sidebar', custom.name, sidebar)
-  else await api.insert('Custom Sidebar', { ...sidebar, user: '' })
+  if (custom) {
+    const changed = changedFields(await api.getDoc('Custom Sidebar', custom.name), sidebar)
+    if (changed.length) {
+      log(`SEED: updating the ${name} sidebar (${changed.join(', ')})`)
+      await api.update('Custom Sidebar', custom.name, sidebar)
+    }
+  } else await api.insert('Custom Sidebar', { ...sidebar, user: '' })
 }
 
 /**
@@ -508,6 +526,31 @@ async function ensureLandingPage(api, log) {
   if (user.default_workspace === testData.landingWorkspace) return
   log(`SEED: setting ${ENV.adminUser}'s Default Workspace to ${testData.landingWorkspace}`)
   await api.update('User', ENV.adminUser, { default_workspace: testData.landingWorkspace })
+}
+
+/**
+ * The fields of `wanted` whose value differs from the saved record `existing`. Child tables (arrays)
+ * are compared row by row, on the keys the seed sets only (ERPNext adds its own, like `name` and
+ * `idx`). Values compare as text, so 1 and 1.0, or null and '', count as the same. JSON text (a
+ * Workspace's `content`) compares as data: ERPNext stores it with spaces ({"id": "qa0"}), the seed
+ * sends it compact ({"id":"qa0"}).
+ */
+function changedFields(existing, wanted) {
+  const asJson = (text) => {
+    try { return JSON.stringify(JSON.parse(text)) } catch { return null }
+  }
+  const same = (saved, value) => {
+    if (Array.isArray(value)) {
+      return Array.isArray(saved) && saved.length === value.length &&
+        value.every((row, index) => Object.keys(row).every((key) => same(saved[index][key], row[key])))
+    }
+    if (typeof value === 'string' && /^[[{]/.test(value) && typeof saved === 'string') {
+      const parsed = asJson(value)
+      if (parsed !== null) return parsed === asJson(saved)
+    }
+    return String(saved ?? '') === String(value ?? '')
+  }
+  return Object.keys(wanted).filter((key) => !same(existing[key], wanted[key]))
 }
 
 module.exports = { seed, TEST_DATA }

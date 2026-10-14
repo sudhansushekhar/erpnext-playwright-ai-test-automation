@@ -1,10 +1,13 @@
 /**
  * Warm the server up after the seed, before any test starts.
  *
- * The seed changes POS Profiles, items and users, which clears ERPNext's caches. Then every worker
- * starts at the same moment, each loading the Point of Sale for its cashier with nothing cached:
- * the first tests of a run were the slowest, and one of them ran out of time (TC-POS-001, 72 s of
- * 60 s, on the first of 10 runs; the other 9 took about 26 s). So, once, for each billing counter's
+ * Saving a POS Profile, a workspace or a user makes ERPNext drop the cashiers' cached start-up data,
+ * and the next Point of Sale load took 6-9 s instead of 2. The seed used to re-save those records on
+ * every run; it now saves only what changed (changedFields in seed.js), so a normal run leaves the
+ * caches warm. They are still cold after a real change, a fresh site or a restarted ERPNext, and then
+ * every worker starts at the same moment, each loading the Point of Sale with nothing cached: the
+ * first test of a run once ran out of time (TC-POS-001, 72 s of 60 s, on the first of 10 runs; the
+ * other 9 took about 26 s). So, once, for each billing counter's
  * cashier: sign in through the API, load the Point of Sale page (the server builds the cashier's
  * session data) and the Sales Invoice form definition it asks for next, then sign out again.
  *
