@@ -24,6 +24,9 @@ A few things I care about in the tests themselves:
   its own cashier, POS profile and stock item.
 - Nothing is retried and nothing is skipped. Every new test is broken on purpose once, to prove it can fail.
 
+Right now there are 17 tests (signing in, POS sales, and sales and returns with values from Excel and
+JSON), each run on Chromium and WebKit: 34 runs, about 6 minutes with 4 workers.
+
 If you want the details: [docs/framework.md](docs/framework.md) explains the structure and design
 (with diagrams), and [docs/ai-workflow.md](docs/ai-workflow.md) describes the day-to-day loop with the AI.
 
@@ -83,6 +86,7 @@ page that lists every test value. The demo users sign in with `DEMO_USER_PASSWOR
 | `npm run seed` | Builds the test data, and repairs anything someone changed by hand. |
 | `npm run lint` | The rules a machine can check (no locators in specs, no fixed waits, nothing skipped, readable names), plus a check that every test reads test data that exists. |
 | `npm test` / `npm run test:smoke` | Every test on both browsers, or only the `@smoke` ones. |
+| `WORKERS=4 npm test` | Run 4 tests at once, each at its own billing counter (about 6 minutes for all 34 runs). |
 | `npm run test:chromium` / `npm run test:webkit` | Every test on one browser. |
 | `npm run test:headed` | Watch the tests drive the browser (Chromium, one at a time). |
 | `npx playwright test tests/pos/sale.spec.js --project=chromium` | One file in one browser. |
@@ -183,6 +187,10 @@ Everything is set up for India, in rupees:
   11 demo items and their stock
 - demo customers and suppliers, and users: four cashiers, a store manager and an admin
 - the QA Testing page in ERPNext, which lists all of it
+
+After the seed, global setup also loads the Point of Sale once per cashier, so the first tests don't
+start on a cold server, and signs the tests' API user in once for all workers: when every worker
+signed the same user in at the same moment, ERPNext refused most of those sign-ins.
 
 Every value, every person, and 13 worked GST examples are in [docs/test-data.md](docs/test-data.md).
 

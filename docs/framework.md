@@ -37,7 +37,8 @@ erpnext-playwright-ai-test-automation/
 │   │   ├── base.js                env, testData, counter, users, api, session
 │   │   ├── pages.js               loginPage, deskPage, posPage, secondDevice
 │   │   ├── pos.js                 shifts, shift, pos, posBeforeOpening
-│   │   └── index.js               exports test, expect and the report helpers; table of fixtures
+│   │   └── index.js               exports test, expect and the report helpers; table of fixtures;
+│   │                              JSDoc types, so Ctrl+click on pos.payWith opens the page object
 │   ├── pages/                     page objects: every locator lives here
 │   │   ├── LoginPage.js           the sign-in screen
 │   │   ├── DeskPage.js            any desk page
@@ -189,9 +190,11 @@ sequenceDiagram
 
   R->>S: before any test
   S->>E: company, GST, items, stock, users, billing counters (only what is missing)
+  S->>E: warm-up: load the Point of Sale once per cashier (cold caches after the seed)
+  S->>E: sign the automation user in ONCE, save the session (.results/api-session.json)
   S-->>R: .results/test-data.json
   R->>F: the test asks for { pos, shift, api, testData }
-  F->>E: api: sign in as the automation user (REST, once per worker)
+  F->>E: api: resume the shared session (no sign-in: workers signing in at once collided)
   F->>E: shift: close leftovers, open Billing Counter 1 for Anjali (POS Opening Entry)
   F->>P: pos: sign Anjali in, open the Point of Sale, wait until ready
   T->>P: addItem, checkout, payWith('Cash', '118'), completeOrder()
@@ -398,12 +401,13 @@ Playwright request context, and its methods behave the same whatever it wraps:
 ```js
 // src/api/FrappeClient.js
 static async signIn(baseUrl, user, password) { ... return new FrappeClient(ctx) }  // its own session
+static async resume(baseUrl, file) { ... return new FrappeClient(ctx) }            // a saved session, shared
 static fromContext(ctx) { return new FrappeClient(ctx) }                            // the browser's session
 ```
 
 ```js
 // src/fixtures/base.js and pages.js
-api:     await FrappeClient.signIn(env.baseUrl, testData.automationUser, env.demoUserPassword)  // the tests' API user
+api:     await FrappeClient.resume(env.baseUrl, API_SESSION_FILE)                 // the tests' API user, signed in once
 session: FrappeClient.fromContext(page.request)                                    // this browser
 secondDevice.session: FrappeClient.fromContext(page.request)                       // another browser
 ```
@@ -414,8 +418,8 @@ object can do, not its declared type ("duck typing"), so anything with `get` and
 
 ### Static methods (factory methods)
 
-`FrappeClient.signIn(...)` and `FrappeClient.fromContext(...)` are called on the class, not on an
-object: they **create** a ready-to-use client. `signIn` also does the work a constructor cannot
+`FrappeClient.signIn(...)`, `FrappeClient.resume(...)` and `FrappeClient.fromContext(...)` are called on
+the class, not on an object: they **create** a ready-to-use client. `signIn` also does the work a constructor cannot
 (an `await`ed sign-in that may fail with a clear message).
 
 ### Getters
@@ -443,7 +447,7 @@ opens and closes shifts, `seed.js` prepares data. A change has one place to go.
 |---|---|---|
 | **Page Object Model** | `src/pages/` | Locators and screen actions in one class per screen; tests read like test cases |
 | **Fixtures = dependency injection** | `src/fixtures/` | A test names what it needs (`{ pos, api }`); Playwright builds it, hands it in and cleans it up. No set-up code in tests |
-| **Factory** | `FrappeClient.signIn` / `fromContext`, the fixtures | Objects are created in one place, ready to use |
+| **Factory** | `FrappeClient.signIn` / `resume` / `fromContext`, the fixtures | Objects are created in one place, ready to use |
 | **Facade** | `Shifts` | One simple call (`open`, `close`) in front of several ERPNext documents and API calls |
 | **Data builder (seed)** | `src/seed/` | Test data described once (`data.js`), built idempotently, shared by name |
 | **Arrange, Act, Assert** | every spec | Fixtures arrange, page-object calls act, `expect` on the saved record asserts |
@@ -475,7 +479,8 @@ New screen: a new class in `src/pages/` and a fixture in `pages.js`. New feature
 |---|---|
 | More tests | Same pattern; fixtures and page objects are shared, specs stay short |
 | More test data | Rows in Excel or JSON (`testdata/`), read by one generic reader; no code per module |
-| Faster runs | **Billing counters**: each worker gets its own cashier, billing counter and stock item (`src/seed/data.js`), chosen by `workerInfo.parallelIndex` in the `counter` fixture, so tests running at the same time share nothing. `WORKERS=4 npm test` runs four at once; more billing counters, more workers. The `api` session signs in once per worker as a dedicated automation user, never Administrator, so parallel sign-ins never break a browser test about Administrator |
+| Faster runs | **Billing counters**: each worker gets its own cashier, billing counter and stock item (`src/seed/data.js`), chosen by `workerInfo.parallelIndex` in the `counter` fixture, so tests running at the same time share nothing. `WORKERS=4 npm test` runs four at once; more billing counters, more workers. The `api` session is a dedicated automation user, never Administrator, signed in **once** in global setup and shared by every worker: workers signing the same user in at the same moment made ERPNext fail most of the sign-ins |
+| Fast first tests | Global setup **warms the server up** after the seed (loads the POS once per cashier): right after the seed the page took 9.0 s, warm 1.5–2.1 s |
 | More browsers | Projects in `playwright.config.js` (Chromium and WebKit today) |
 | Quick vs full | `@smoke` on every pull request; every test nightly, published to the [dashboard](https://sudhansushekhar.github.io/erpnext-playwright-ai-test-automation/) with the trend across runs |
 | Another site | Change `BASE_URL`; the seed builds the data there |
